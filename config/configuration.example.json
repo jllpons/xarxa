@@ -1,0 +1,155 @@
+{
+    "database_data": {
+        "connection": "postgresql://username@localhost:5432/exampledb"
+    },
+    "organism_data": {
+        "taxid": 123456,
+        "kegg_id": "xyz",
+        "refseq_genbank_genome_file": "data/refseq_genbank_genome_file/example_genome.gb"
+    },
+    "protein_data": {
+        "protein_types": [
+            {
+                "name": "kinase",
+                "keyword": "KW-XXXX",
+                "neighbourhood_depth": 2
+            },
+            {
+                "name": "phosphoprotein",
+                "keyword": "KW-YYYY",
+                "neighbourhood_depth": 1
+            }
+        ],
+        "string_file": "data/string/example_protein.links.full.v12.0.txt.tsv"
+    },
+    "experimental_data" : {
+        "transcriptomics_data": {
+            "quantification" : [
+                {
+                    "sample": "sample1",
+                    "file": "data/transcriptomics/sample1_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sample2",
+                    "file": "data/transcriptomics/sample2_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                }
+            ],
+            "differential" : [
+                {
+                    "condition": "condition1_vs_condition2",
+                    "file": "data/transcriptomics/condition1_vs_condition2_differential.tsv",
+                    "id_type": "refseq_locus_tag"
+                }
+            ]
+        },
+        "proteomics_data": {
+            "quantification" : [
+                {
+                    "sample": "sampleA_condition1",
+                    "file": "data/proteomics/sampleA_condition1_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleA_condition1",
+                    "file": "data/proteomics/sampleA_condition1_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleB_condition2",
+                    "file": "data/proteomics/sampleB_condition2_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleB_condition2",
+                    "file": "data/proteomics/sampleB_condition2_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleA_condition3",
+                    "file": "data/proteomics/sampleA_condition3_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleA_condition3",
+                    "file": "data/proteomics/sampleA_condition3_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleB_condition4",
+                    "file": "data/proteomics/sampleB_condition4_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleB_condition4",
+                    "file": "data/proteomics/sampleB_condition4_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleC_condition5",
+                    "file": "data/proteomics/sampleC_condition5_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleC_condition5",
+                    "file": "data/proteomics/sampleC_condition5_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleD_condition6",
+                    "file": "data/proteomics/sampleD_condition6_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleD_condition6",
+                    "file": "data/proteomics/sampleD_condition6_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleC_condition7",
+                    "file": "data/proteomics/sampleC_condition7_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleC_condition7",
+                    "file": "data/proteomics/sampleC_condition7_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                },
+                {
+                    "sample": "sampleD_condition8",
+                    "file": "data/proteomics/sampleD_condition8_quantification.tsv",
+                    "id_type": "refseq_locus_tag"
+                },
+                {
+                    "sample": "sampleD_condition8",
+                    "file": "data/proteomics/sampleD_condition8_locus_tags.tsv",
+                    "id_type": "locus_tag"
+                }
+            ],
+            "peptide_ptm" : [
+                {
+                    "sample" : "sampleE",
+                    "file" : "data/proteomics/sampleE_peptidePTMs_refseq_locus_tag.tsv",
+                    "id_type" : "refseq_locus_tag"
+                },
+                {
+                    "sample" : "sampleE",
+                    "file" : "data/proteomics/sampleE_peptidePTMs_locus_tag.tsv",
+                    "id_type" : "locus_tag"
+                },
+                {
+                    "sample" : "sampleF",
+                    "file" : "data/proteomics/sampleF_peptidePTMs_refseq_locus_tag.tsv",
+                    "id_type" : "refseq_locus_tag"
+                },
+                {
+                    "sample" : "sampleF",
+                    "file" : "data/proteomics/sampleF_peptidePTMs_locus_tag.tsv",
+                    "id_type" : "locus_tag"
+                }
+            ]
+        }
+    }
+}
+

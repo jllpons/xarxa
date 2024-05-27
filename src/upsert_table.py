@@ -239,15 +239,35 @@ Example:
                               help="File containing data to parse, or '-' to read from stdin. Defaults to stdin if omitted.")
 
 
-#         if subparser in [
-#                 table_types.choices["transcriptomics_quantification"],
-#                 table_types.choices["proteomics_quantification"],
-#                 table_types.choices["proteomics_peptide_ptm"],
-#             ]:
-#             required.add_argument("condition",
-#                                   metavar="<condition>",
-#                                   type=str,
-#                                   help="Name of the experimental condition. E.g. 'control', 'treatment', etc.")
+        if subparser in [
+            table_types.choices["transcriptomics_counts"],
+            table_types.choices["proteomics_peptide_modifications"],
+            table_types.choices["proteomics_quantification"],
+        ]:
+            required.add_argument("experimental_condition",
+                                  metavar="<experimental_condition>",
+                                  type=str,
+                                  help="Name of the experimental condition. E.g. 'control', 'treatment', etc.")
+
+        if subparser == table_types.choices["transcriptomics"]:
+            required.add_argument("condition_a",
+                                  metavar="<condition_a>",
+                                  type=str,
+                                  help="Name of the first experimental condition. E.g. 'control', 'treatment', etc.")
+
+            required.add_argument("condition_b",
+                                  metavar="<condition_b>",
+                                  type=str,
+                                  help="Name of the second experimental condition. E.g. 'control', 'treatment', etc.")
+
+        if subparser in [
+            table_types.choices["transcriptomics_counts"],
+            table_types.choices["proteomics_quantification"],
+        ]:
+            required.add_argument("replicate",
+                                  metavar="<replicate>",
+                                  type=int,
+                                  help="Replicate number for the experimental condition. E.g. 1, 2, 3, etc.")
 
 
         # Add optional arguments present in all subparsers
@@ -344,25 +364,31 @@ def main():
             from lib.table_string_interactions import run_upsert_string_interactions
             run_upsert_string_interactions(in_data, conn)
 
-#         case "transcriptomics_quantification":
-# 
-#             from lib.table_transcriptomics_quantification import run_upsert_transcriptomics_quantification
-#             run_upsert_transcriptomics_quantification(in_data, args.sample, args.id_type, conn)
-# 
-#         case "transcriptomics_differential":
-# 
-#             from lib.table_transcriptomics_differential import run_upsert_transcriptomics_differential
-#             run_upsert_transcriptomics_differential(in_data, args.condition, args.id_type, conn)
-# 
-#         case "proteomics_quantification":
-# 
-#             from lib.table_proteomics_quantification import run_upsert_proteomics_quantification
-#             run_upsert_proteomics_quantification(in_data, args.sample, args.id_type, conn)
-# 
-#         case "proteomics_peptide_ptm":
-# 
-#             from lib.table_proteomics_peptide_ptm import run_upsert_proteomics_peptide_ptm
-#             run_upsert_proteomics_peptide_ptm(in_data, args.sample, args.id_type, conn)
+        case "experimental_condition":
+
+            from lib.table_experimental_condition import run_upsert_experimental_condition
+            run_upsert_experimental_condition(in_data, conn)
+
+        case "transcriptomics":
+
+            from lib.table_transcriptomics import run_upsert_transcriptomics
+            run_upsert_transcriptomics(in_data, args.condition_a, args.condition_b, conn)
+
+        case "transcriptomics_counts":
+
+            from lib.table_transcriptomics_counts import run_upsert_transcriptomics_counts
+            run_upsert_transcriptomics_counts(in_data, args.experimental_condition, args.replicate, conn)
+
+        case "proteomics_peptide_modifications":
+
+            from lib.table_proteomics_peptide_modifications import run_upsert_proteomics_peptide_modifications
+            run_upsert_proteomics_peptide_modifications(in_data, args.experimental_condition, conn)
+
+        case "proteomics_quantification":
+
+            from lib.table_proteomics_quantification import run_upsert_proteomics_quantification
+            run_upsert_proteomics_quantification(in_data, args.experimental_condition, args.replicate, conn)
+
 
     conn.close()
     logger.info("Data upserted successfully. Connection closed.")

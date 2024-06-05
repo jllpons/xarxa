@@ -23,6 +23,7 @@ from lib.generic_row import parse_tsv, GenericRow
 from lib.schema import (
     TABLE_NAME_STRING_INTERACTIONS,
     TABLE_STRUCTURE_STRING_INTERACTIONS,
+    TABLE_INDEX_STRING_INTERACTIONS,
     COLUMN_NAME_PROTEIN_A,
     COLUMN_NAME_PROTEIN_B,
     COLUMN_NAME_NEIGHBORHOOD,
@@ -170,7 +171,6 @@ INSERT INTO {TABLE_NAME_STRING_INTERACTIONS} (
     %s
 )
 ON CONFLICT ({COLUMN_NAME_PROTEIN_A}, {COLUMN_NAME_PROTEIN_B})
-
 DO UPDATE SET
     {COLUMN_NAME_NEIGHBORHOOD} = EXCLUDED.{COLUMN_NAME_NEIGHBORHOOD},
     {COLUMN_NAME_NEIGHBORHOOD_TRANSFERRED} = EXCLUDED.{COLUMN_NAME_NEIGHBORHOOD_TRANSFERRED},
@@ -250,8 +250,18 @@ def run_upsert_string_interactions(
         TABLE_STRUCTURE_STRING_INTERACTIONS,
         conn,
     )
+    execute_query(TABLE_INDEX_STRING_INTERACTIONS, conn)
 
-    raise NotImplementedError
+    logger.info("Upserting records...")
+    for record in records:
+
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
 
     conn.commit()
 

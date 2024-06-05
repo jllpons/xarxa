@@ -23,6 +23,7 @@ from lib.generic_row import parse_tsv, GenericRow
 from lib.schema import (
         TABLE_NAME_KEGG_RELATIONS,
         TABLE_STRUCTURE_KEGG_RELATIONS,
+        TABLE_INDEX_KEGG_RELATIONS,
         COLUMN_NAME_KEGG_RELATION_SOURCE,
         COLUMN_NAME_KEGG_RELATION_TARGET,
         COLUMN_NAME_KEGG_PATHWAY,
@@ -33,8 +34,8 @@ from lib.schema import (
 
 
 TSV_FORMAT_SCHEMA_KEGG_RELATIONS = {
-    "kegg_accesson_source": str,
-    "kegg_accesson_target": str,
+    "kegg_accession_source": str,
+    "kegg_accession_target": str,
     "pathway": str,
     "relation_type": str,
     "relation_subtype": list,
@@ -114,26 +115,37 @@ INSERT INTO {TABLE_NAME_KEGG_RELATIONS} (
     {COLUMN_NAME_KEGG_PATHWAY},
     {COLUMN_NAME_KEGG_RELATION_TYPE},
     {COLUMN_NAME_KEGG_RELATION_SUBTYPE_NAME},
-    {COLUMN_NAME_KEGG_RELATION_SUBTYPE},
+    {COLUMN_NAME_KEGG_RELATION_SUBTYPE}
 ) VALUES (
     %s, %s, %s, %s, %s, %s
 ) ON CONFLICT DO NOTHING
 """
 
-    params = (
-        record.kegg_accession_source,
-        record.kegg_accession_target,
-        record.pathway,
-        record.relation_type,
-        record.relation_subtype,
-        record.relation_subtype_values,
-    )
+    if record.relation_subtype is None:
+        return
 
-    try:
-        execute_query(query, conn, params)
-    except psycopg2.Error as e:
-        logger.error(f"Error upserting record: {record}")
-        raise e
+    if record.relation_subtype_values is None:
+        return
+
+    for subtype, subtype_value in zip(record.relation_subtype, record.relation_subtype_values):
+
+
+        for st_value in subtype_value.split(" "):
+
+            params = (
+                record.kegg_accession_source,
+                record.kegg_accession_target,
+                record.pathway,
+                record.relation_type,
+                subtype,
+                st_value,
+            )
+
+            try:
+                execute_query(query, conn, params)
+            except psycopg2.Error as e:
+                logger.error(f"Error inserting record: {record}")
+                raise e
 
 
 def run_upsert_kegg_relations(
@@ -171,8 +183,18 @@ def run_upsert_kegg_relations(
         TABLE_STRUCTURE_KEGG_RELATIONS,
         conn,
     )
+    execute_query(TABLE_INDEX_KEGG_RELATIONS, conn)
 
-    raise NotImplementedError
+    logger.info("Upserting records...")
+    for record in records:
+
+        try:
+            insert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
 
     conn.commit()
 

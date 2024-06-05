@@ -10,8 +10,8 @@ Output format:
   2. Locus tag(s) (if multiple, separated by ';')
   3. ORF names (if multiple, separated by ';')
   4. KEGG accession(s) (if multiple, separated by ';')
-  5. EMBL protein ID
-  6. RefSeq accession
+  5. RefSeq Protein ID
+  6. EMBL protein ID
   7. Keywords (if multiple, separated by ';')
   8. Protein name
   9. Protein existence
@@ -172,13 +172,13 @@ def get_refseq_accession(xrefs: List[dict]) -> str:
 
         try:
             if xref["database"] == "RefSeq":
-                for property in xref["properties"]:
-                    if property["key"] == "accession":
-                        refseq_accession = property["value"]
-        except KeyError:
-                return refseq_accession
+                refseq_accession = xref["id"]
+                break
 
-        return refseq_accession
+        except KeyError:
+            return refseq_accession
+
+    return refseq_accession
 
 
 def get_kegg_accession(xrefs: List[dict]) -> str:
@@ -275,7 +275,7 @@ def get_ptm(features: List[dict]) -> str:
             if feature["type"] == "Modified residue":
                 start = feature["location"]["start"]["value"]
                 end = feature["location"]["end"]["value"]
-                description = feature["description"]
+                description = feature["description"].replace(r"'", ""),
 
                 ptm.append({"position": f"{start}..{end}", "description": description})
         except KeyError:
@@ -338,8 +338,8 @@ def parse_json_entry(entry: dict) -> Tuple:
         locus_tag, # List as str joined by ;
         orf_names, # List as str joined by ;
         kegg_accession, # List as str joined by ;
-        embl_protein_id, # str
         refseq_accession, # str
+        embl_protein_id, # str
         keywords, # List as str joined by ;
         name, # str
         protein_existence, # str

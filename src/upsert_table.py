@@ -68,9 +68,35 @@ Examples:
                     )
 
 
+    table_types.add_parser("id_mapper",
+                           help="",
+                           usage="upsert_table.py id_mapper [options] <file>",
+                           description="""
+The 'id_mapper' table allows for the mapping of different identifiers.
+
+Input Format:
+  - The data file should be tab-separated with the following columns:
+    1. UniProt Accession
+    2. RefSeq Locus Tag
+    3. Locus Tag
+    4. KEGG Accession
+    5. RefSeq Protein ID
+                            """,
+                           formatter_class=fmt,
+                           epilog="""
+Example:
+
+    Upserting data from a file:
+    $ upsert_table.py uniprot data/id_mapper.tsv
+
+    Same operation but piping the data from a command:
+    $ map_ids.py | upsert_table.py id_mapper
+                           """)
+
+
     table_types.add_parser("uniprot",
                            help="",
-                           usage="upsert.py uniprot [options] <file>",
+                           usage="upsert_table.py uniprot [options] <file>",
                            description="""
 The 'uniprot' table stores information retrieved from the UniProt database for
 every entry associated with the organism.
@@ -106,7 +132,7 @@ Example:
     """)
 
 
-    table_types.add_parser("refseq_genome",
+    table_types.add_parser("refseq",
                            help="",
                            usage="upsert_table.py refseq [options] <file>",
                            description="""
@@ -227,6 +253,121 @@ Example:
     """)
 
 
+    table_types.add_parser("experimental_condition",
+                           help="",
+                           formatter_class=fmt,
+                           usage="upsert_table.py experimental_condition [options] <file>",
+                           description="""
+The 'experimental_condition' table stores the experimental conditions of the different
+experimental results that will be stored in the database.
+
+Input Format:
+- The data file should be tab-separated with the following columns:
+    1. Experimental Condition Name
+    2. Experimental Condition Description
+    3. Experimental Condition Type
+                           """,
+                           epilog="""
+Example:
+    Upsert specific experimental conditions to the 'experimental_condition' table in the database:
+    $ upsert_table.py experimental_condition data/experimental_conditions.tsv
+    """)
+
+
+    table_types.add_parser("transcriptomics",
+                           help="",
+                           formatter_class=fmt,
+                           usage="upsert_table.py transcriptomics [options] <file> <condition_a> <condition_b>",
+                           description="""
+The 'transcriptomics' table stores the differential expression data between two experimental conditions.
+
+Input Format:
+- The data file should be tab-separated with the following columns:
+    1. Experimental ID
+    2. Condition A
+    3. Condition B
+    4. Log2 Fold Change
+    5. P-value
+    6. Adjusted P-value
+                           """,
+                           epilog="""
+Example:
+  Upsert data from a file to the 'transcriptomics' table in the database:
+    $ upsert_table.py transcriptomics data/transcriptomics.tsv control treatment
+    """)
+
+
+    table_types.add_parser("transcriptomics_counts",
+                           help="",
+                           formatter_class=fmt,
+                           usage="upsert_table.py transcriptomics_counts [options] <file> <experimental_condition> <replicate>",
+                           description="""
+The 'transcriptomics_counts' table stores the raw and normalized counts for each gene
+in a given experimental condition and replicate.
+                           """,
+                           epilog="""
+Example:
+Upsert data from a file to the 'transcriptomics_counts' table in the database:
+    $ upsert_table.py transcriptomics_counts data/transcriptomics_counts.tsv control 1
+    """)
+
+
+    table_types.add_parser("proteomics_peptide_modifications",
+                           help="",
+                           formatter_class=fmt,
+                           usage="upsert_table.py proteomics_peptide_modifications [options] <file> <experimental_condition>",
+                           description="""
+The 'proteomics_peptide_modifications' table stores the peptide modifications for each protein
+in a given experimental condition.
+
+Input Format:
+- The data file should be tab-separated with the following columns:
+    1. Experimental ID
+    2. Experimental Condition
+    3. Modification Type
+    4. Modification Position
+    5. Peptide Sequence
+    6. Start Position Complete Protein
+    7. End Position Complete Protein
+    8. PSM Ambiguity
+    9. PEP Score
+    10. Q-Value
+    11. Search Engine Confidence
+                           """,
+                           epilog="""
+Example:
+  Upsert data from a file to the 'proteomics_peptide_modifications' table in the database:
+    $ upsert_table.py proteomics_peptide_modifications data/proteomics_peptide_modifications.tsv control
+    """)
+
+
+    table_types.add_parser("proteomics_quantification",
+                           help="",
+                           formatter_class=fmt,
+                           usage="upsert_table.py proteomics_quantification [options] <file> <experimental_condition> <replicate>",
+                           description="""
+The 'proteomics_quantification' table stores the quantification data for each protein
+in a given experimental condition and replicate.
+
+Input Format:
+- The data file should be tab-separated with the following columns:
+    1. Experimental ID
+    2. Experimental Condition
+    3. Replicate
+    4. Protein Sequence
+    5. Sum of PEP Scores
+    6. Cumulative Q-Value
+    7. Abundance
+    8. Abundance Normalized
+    9. Abundance Count
+                           """,
+                           epilog="""
+Example:
+  Upsert data from a file to the 'proteomics_quantification' table in the database:
+    $ upsert_table.py proteomics_quantification data/proteomics_quantification.tsv control 1
+    """)
+
+
     # Add arguments based on specific subparser (table type) we are using
     for subparser in table_types.choices.values():
 
@@ -338,6 +479,11 @@ def main():
 
 
     match args.table_type:
+
+        case "id_mapper":
+
+            from lib.table_id_mapper import run_upsert_id_mapper
+            run_upsert_id_mapper(in_data, conn)
 
         case "uniprot":
 

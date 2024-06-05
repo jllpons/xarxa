@@ -50,7 +50,7 @@ def setup_argparse() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         formatter_class=fmt,
-        usage="%(prog)s [options] <file>",
+        usage="%(prog)s [options] <kegg_organism>",
         description=__doc__,
         add_help=False,
         epilog="""
@@ -67,7 +67,7 @@ For more detailed information, see the 'docs' directory.
 
     parser._positionals.title = "Arguments"
     parser.add_argument("organism",
-                        metavar="<organism>",
+                        metavar="<kegg_organism>",
                         type=str,
                         help="The KEGG organism code.")
 

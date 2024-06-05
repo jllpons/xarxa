@@ -17,13 +17,13 @@ from lib.db_operations import (
     execute_query,
     create_table_if_not_exists
 )
-from lib.generic_row import parse_tsv, GenericRow
+from lib.generic_row import parse_tsv
 from lib.schema import (
     TABLE_NAME_REFSEQ,
     TABLE_STRUCTURE_REFSEQ,
     COLUMN_NAME_REFSEQ_LOCUS_TAG,
     COLUMN_NAME_LOCUS_TAG,
-    COLUMN_NAME_REFSEQ_ACCESSION,
+    COLUMN_NAME_REFSEQ_PROTEIN_ID,
     COLUMN_NAME_STRAND_LOCATION,
     COLUMN_NAME_START_POSITION,
     COLUMN_NAME_END_POSITION,
@@ -50,7 +50,7 @@ class RefseqRow:
     end_position: str
 
     locus_tag: Optional[List[str]] = None
-    refseq_accession: Optional[List[str]] = None
+    refseq_protein_id: Optional[List[str]] = None
     protein_sequence: Optional[str] = None
 
 
@@ -112,7 +112,7 @@ def upsert_record(record, conn):
 INSERT INTO {TABLE_NAME_REFSEQ} (
     {COLUMN_NAME_REFSEQ_LOCUS_TAG},
     {COLUMN_NAME_LOCUS_TAG},
-    {COLUMN_NAME_REFSEQ_ACCESSION},
+    {COLUMN_NAME_REFSEQ_PROTEIN_ID},
     {COLUMN_NAME_STRAND_LOCATION},
     {COLUMN_NAME_START_POSITION},
     {COLUMN_NAME_END_POSITION},
@@ -125,7 +125,7 @@ ON CONFLICT ({COLUMN_NAME_REFSEQ_LOCUS_TAG})
 
 DO UPDATE SET
     {COLUMN_NAME_LOCUS_TAG} = EXCLUDED.{COLUMN_NAME_LOCUS_TAG},
-    {COLUMN_NAME_REFSEQ_ACCESSION} = EXCLUDED.{COLUMN_NAME_REFSEQ_ACCESSION},
+    {COLUMN_NAME_REFSEQ_PROTEIN_ID} = EXCLUDED.{COLUMN_NAME_REFSEQ_PROTEIN_ID},
     {COLUMN_NAME_STRAND_LOCATION} = EXCLUDED.{COLUMN_NAME_STRAND_LOCATION},
     {COLUMN_NAME_START_POSITION} = EXCLUDED.{COLUMN_NAME_START_POSITION},
     {COLUMN_NAME_END_POSITION} = EXCLUDED.{COLUMN_NAME_END_POSITION},
@@ -135,7 +135,7 @@ DO UPDATE SET
     params = (
         record.refseq_locus_tag,
         record.locus_tag,
-        record.refseq_accession,
+        record.refseq_protein_id,
         record.strand_location,
         record.start_position,
         record.end_position,
@@ -188,7 +188,16 @@ def run_upsert_refseq(
             conn
             )
 
-    raise NotImplementedError("Need to implement upsert_record function")
+    for record in records:
+
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
+
 
     conn.commit()
 

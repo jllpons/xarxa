@@ -23,7 +23,13 @@ from lib.schema import (
     TABLE_STRUCTURE_KEGG,
     COLUMN_NAME_KEGG_ACCESSION,
     COLUMN_NAME_KEGG_PATHWAY,
-    COLUMN_NAME_KEGG_ORTHOLOGY
+    COLUMN_NAME_KEGG_ORTHOLOGY,
+    TABLE_NAME_KEGG_PATHWAY,
+    TABLE_STRUCTURE_KEGG_PATHWAY,
+    TABLE_INDEX_KEGG_PATHWAY,
+    TABLE_NAME_KEGG_KO,
+    TABLE_STRUCTURE_KEGG_KO,
+    TABLE_INDEX_KEGG_KO,
 )
 
 
@@ -83,6 +89,107 @@ def validate_records(records: List[KeggRecord]) -> None:
         kegg_accessions.add(record.kegg_accession)
 
 
+def upsert_kegg_table(record: KeggRecord, conn: psycopg2.extensions.connection) -> None:
+    """
+    Given a KeggRecord object, this function upserts the record into the
+    `kegg` table in the database.
+
+    Args:
+        record: A KeggRecord object
+        conn: A psycopg2 connection object
+
+    Returns:
+        None
+    """
+
+    query = f"""
+    INSERT INTO {TABLE_NAME_KEGG} (
+        {COLUMN_NAME_KEGG_ACCESSION}
+    ) VALUES (%s)
+    ON CONFLICT ({COLUMN_NAME_KEGG_ACCESSION})
+    DO NOTHING
+    """
+
+    params = (record.kegg_accession,)
+
+    try:
+        execute_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error upserting record: {record.kegg_accession}")
+        raise e
+
+
+def upsert_kegg_pathway_table(record: KeggRecord, conn: psycopg2.extensions.connection) -> None:
+    """
+    Given a KeggRecord object, this function upserts the record into the
+    `kegg_pathway` table in the database.
+
+    Args:
+        record: A KeggRecord object
+        conn: A psycopg2 connection object
+
+    Returns:
+        None
+    """
+
+    query = f"""
+    INSERT INTO {TABLE_NAME_KEGG_PATHWAY} (
+        {COLUMN_NAME_KEGG_ACCESSION},
+        {COLUMN_NAME_KEGG_PATHWAY}
+    ) VALUES (%s, %s)
+    ON CONFLICT ({COLUMN_NAME_KEGG_ACCESSION}, {COLUMN_NAME_KEGG_PATHWAY})
+    DO NOTHING
+    """
+
+    if not record.kegg_pathway:
+        return
+
+    for pathway in record.kegg_pathway:
+        params = (record.kegg_accession, pathway)
+
+        try:
+            execute_query(query, conn, params)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record.kegg_accession}")
+            raise e
+
+
+def upsert_kegg_orthology_table(record: KeggRecord, conn: psycopg2.extensions.connection) -> None:
+    """
+    Given a KeggRecord object, this function upserts the record into the
+    `kegg_orthology` table in the database.
+
+    Args:
+        record: A KeggRecord object
+        conn: A psycopg2 connection object
+
+    Returns:
+        None
+    """
+
+    query = f"""
+    INSERT INTO {TABLE_NAME_KEGG_KO} (
+        {COLUMN_NAME_KEGG_ACCESSION},
+        {COLUMN_NAME_KEGG_ORTHOLOGY}
+    ) VALUES (%s, %s)
+    ON CONFLICT ({COLUMN_NAME_KEGG_ACCESSION}, {COLUMN_NAME_KEGG_ORTHOLOGY})
+    DO NOTHING
+    """
+
+    if not record.kegg_orthology:
+        return
+
+    for orthology in record.kegg_orthology:
+        params = (record.kegg_accession, orthology)
+
+        try:
+            execute_query(query, conn, params)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record.kegg_accession}")
+            raise e
+
+
+
 def upsert_record(record: KeggRecord,
                   conn: psycopg2.extensions.connection) -> None:
     """
@@ -100,32 +207,11 @@ def upsert_record(record: KeggRecord,
         psycopg2.Error: If an error occurs during the upsert operation
     """
 
-    query = f"""
-INSERT INTO {TABLE_NAME_KEGG} (
-    {COLUMN_NAME_KEGG_ACCESSION},
-    {COLUMN_NAME_KEGG_PATHWAY},
-    {COLUMN_NAME_KEGG_ORTHOLOGY}
-) VALUES (
-    %s, %s, %s
-)
-ON CONFLICT ({COLUMN_NAME_KEGG_ACCESSION})
+    upsert_kegg_table(record, conn)
 
-DO UPDATE SET
-    {COLUMN_NAME_KEGG_PATHWAY} = EXCLUDED.{COLUMN_NAME_KEGG_PATHWAY},
-    {COLUMN_NAME_KEGG_ORTHOLOGY} = EXCLUDED.{COLUMN_NAME_KEGG_ORTHOLOGY}
-"""
+    upsert_kegg_pathway_table(record, conn)
 
-    params = (
-        record.kegg_accession,
-        record.kegg_pathway,
-        record.kegg_orthology
-    )
-
-    try:
-        execute_query(query, conn, params)
-    except psycopg2.Error as e:
-        logger.error(f"Error upserting record: {record.kegg_accession}")
-        raise e
+    upsert_kegg_orthology_table(record, conn)
 
 
 def run_upsert_kegg(
@@ -161,13 +247,37 @@ def run_upsert_kegg(
     validate_records(records)
     logger.info("Successfully validated records")
 
+    logger.info("Creating tables and indexes if they do not exist...")
     create_table_if_not_exists(
         TABLE_NAME_KEGG,
         TABLE_STRUCTURE_KEGG,
         conn
     )
 
-    raise NotImplementedError("Implement the upsert_record function")
+    create_table_if_not_exists(
+        TABLE_NAME_KEGG_PATHWAY,
+        TABLE_STRUCTURE_KEGG_PATHWAY,
+        conn
+    )
+    execute_query(TABLE_INDEX_KEGG_PATHWAY, conn)
+
+    create_table_if_not_exists(
+        TABLE_NAME_KEGG_KO,
+        TABLE_STRUCTURE_KEGG_KO,
+        conn
+    )
+    execute_query(TABLE_INDEX_KEGG_KO, conn)
+
+    logger.info("Upserting records...")
+    for record in records:
+
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
 
     conn.commit()
 

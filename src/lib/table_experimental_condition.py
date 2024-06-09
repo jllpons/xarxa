@@ -27,16 +27,16 @@ from lib.schema import (
 
 
 TSV_FORMAT_SCHEMA_EXPERIMENTAL_CONDITION = {
-    COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME: str,
-    COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION: str,
-    COLUMN_NAME_EXPERIMENTAL_CONDITION_TYPE: str,
+    "name": str,
+    "description": str,
+    "experimental_condition_type": str,
 }
 
 @dataclass
 class ExperimentalConditionRecord:
     name: str
+    description: str
     experimental_condition_type: str
-    description: Optional[str] = None
 
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ def upsert_record(record: ExperimentalConditionRecord, conn: psycopg2.extensions
 INSERT INTO {TABLE_NAME_EXPERIMENTAL_CONDITION} (
     {COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME},
     {COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION},
-    {COLUMN_NAME_EXPERIMENTAL_CONDITION_TYPE},
+    {COLUMN_NAME_EXPERIMENTAL_CONDITION_TYPE}
 ) VALUES (
     %s, %s, %s
 )
@@ -108,7 +108,7 @@ INSERT INTO {TABLE_NAME_EXPERIMENTAL_CONDITION} (
 ON CONFLICT ({COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME})
 DO UPDATE SET
     {COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME} = EXCLUDED.{COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME},
-    {COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION} = EXCLUDED.{COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION},
+    {COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION} = EXCLUDED.{COLUMN_NAME_EXPERIMENTAL_CONDITION_DESCRIPTION}
 """
 
     params = (
@@ -161,7 +161,16 @@ def run_upsert_experimental_condition(
             conn
     )
 
-    raise NotImplementedError("upsert_record function needs to be implemented")
+    logger.info("Upserting records...")
+    for record in records:
+
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
 
 
     conn.commit()

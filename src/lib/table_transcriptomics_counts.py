@@ -25,17 +25,15 @@ from lib.schema import (
     COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME,
     COLUMN_NAME_REPLICATE,
     COLUMN_NAME_READ_COUNT,
-    COLUMN_NAME_NORMALIZED_COUNT
+    COLUMN_NAME_NORMALIZED_READ_COUNT
 
 )
 
 
 TSV_FORMAT_SCHEMA_TRANSCRIPTOMICS_COUNTS = {
-    COLUMN_NAME_EXPERIMENTAL_ID: str,
-    COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME: str,
-    COLUMN_NAME_REPLICATE: int,
-    COLUMN_NAME_READ_COUNT: float,
-    COLUMN_NAME_NORMALIZED_COUNT: float
+    "experimental_id": str,
+    "read_count": float,
+    "normalized_count": float
 }
 
 @dataclass
@@ -113,7 +111,7 @@ INSERT INTO {TABLE_NAME_TRANSCRIPTOMICS_COUNTS} (
     {COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME},
     {COLUMN_NAME_REPLICATE},
     {COLUMN_NAME_READ_COUNT},
-    {COLUMN_NAME_NORMALIZED_COUNT}
+    {COLUMN_NAME_NORMALIZED_READ_COUNT}
 ) VALUES (
     %s, %s, %s, %s, %s
 )
@@ -121,7 +119,7 @@ INSERT INTO {TABLE_NAME_TRANSCRIPTOMICS_COUNTS} (
 ON CONFLICT ({COLUMN_NAME_EXPERIMENTAL_ID}, {COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME}, {COLUMN_NAME_REPLICATE})
 DO UPDATE SET
     {COLUMN_NAME_READ_COUNT} = EXCLUDED.{COLUMN_NAME_READ_COUNT},
-    {COLUMN_NAME_NORMALIZED_COUNT} = EXCLUDED.{COLUMN_NAME_NORMALIZED_COUNT}
+    {COLUMN_NAME_NORMALIZED_READ_COUNT} = EXCLUDED.{COLUMN_NAME_NORMALIZED_READ_COUNT}
 """
 
     params = (
@@ -180,11 +178,20 @@ def run_upsert_transcriptomics_counts(
             conn
     )
 
+
+    logger.info("Upserting records...")
     for record in records:
 
         record.experimental_condition_name = experimental_condition_name
         record.replicate = replicate
 
-        upsert_record(record, conn)
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
 
     conn.commit()
+

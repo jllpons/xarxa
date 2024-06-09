@@ -23,9 +23,9 @@ import psycopg2
 from lib.cli import (
     CustomHelpFormatter,
     setup_logger,
-    read_input
+    read_input,
+    get_database_connection_string,
 )
-from lib.cli import get_database_connection_string
 from lib.db_operations import connect_to_db
 
 

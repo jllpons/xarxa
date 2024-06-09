@@ -131,20 +131,20 @@ mk_id_mapper_table(){
     echo ""
 
     cut -f1-5 "$uniprotkb_dir/uniprot_entries.tsv" \
-    | tee "$log_dir/uniprot_entries_cut.out.tsv" > "$id_mapper/uniprot_entries_cut.tsv"
+    | tee "$log_dir/uniprot_entries_cut.out.tsv" > "$id_mapper_dir/uniprot_entries_cut.tsv"
 
     cut -f1-3 "$refseq_dir/refseq_genome.tsv" \
-    | tee "$log_dir/refseq_genome_cut.out.tsv" > "$id_mapper/refseq_genome_cut.tsv"
+    | tee "$log_dir/refseq_genome_cut.out.tsv" > "$id_mapper_dir/refseq_genome_cut.tsv"
 
     cut -f1 "$kegg_dir/kegg_organism.tsv" \
-    | tee "$log_dir/kegg_organism_cut.out.tsv" > "$id_mapper/kegg_organism_cut.tsv"
+    | tee "$log_dir/kegg_organism_cut.out.tsv" > "$id_mapper_dir/kegg_organism_cut.tsv"
 
 
     python src/match_ids.py --log "$log_level" \
-        $id_mapper/uniprot_entries_cut.tsv \
-        $id_mapper/refseq_genome_cut.tsv \
-        $id_mapper/kegg_organism_cut.tsv \
-    | tee "$log_dir/mk_id_mapper_table.out.tsv" > "$id_mapper/id_mapper.tsv"
+        $id_mapper_dir/uniprot_entries_cut.tsv \
+        $id_mapper_dir/refseq_genome_cut.tsv \
+        $id_mapper_dir/kegg_organism_cut.tsv \
+    | tee "$log_dir/mk_id_mapper_dir_table.out.tsv" > "$id_mapper_dir/id_mapper.tsv"
 }
 
 
@@ -154,7 +154,7 @@ insert_id_mapper_table(){
     echo "Step 2.2: Upsert ID Mapper Table"
     echo ""
 
-    python src/upsert_table.py "id_mapper" "$id_mapper/id_mapper.tsv"
+    python src/upsert_table.py "id_mapper" "$id_mapper_dir/id_mapper.tsv"
 }
 
 

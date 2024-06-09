@@ -31,12 +31,10 @@ from lib.schema import (
 
 
 TSV_FORMAT_SCHEMA_TRANSCRIPTOMICS = {
-    COLUMN_NAME_EXPERIMENTAL_ID: str,
-    COLUMN_NAME_CONDITION_A: str,
-    COLUMN_NAME_CONDITION_B: str,
-    COLUMN_NAME_LOG2_FOLD_CHANGE: float,
-    COLUMN_NAME_P_VALUE: float,
-    COLUMN_NAME_ADJUSTED_P_VALUE: float
+    "experimental_id": str,
+    "log2_fold_change": float,
+    "p_value": float,
+    "adjusted_p_value": float
 }
 
 @dataclass
@@ -183,13 +181,19 @@ def run_upsert_transcriptomics(
             conn
     )
 
-    raise NotImplementedError("Implement the upsert_record function")
+    logger.info("Upserting records...")
 
     for record in records:
-
         record.condition_a = condition_a
         record.condition_b = condition_b
 
-        upsert_record(record, conn)
+        try:
+            upsert_record(record, conn)
+        except psycopg2.Error as e:
+            logger.error(f"Error upserting record: {record}")
+            logger.error(e)
+            conn.rollback()
+            raise e
+
 
     conn.commit()

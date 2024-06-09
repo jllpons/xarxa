@@ -15,11 +15,11 @@ from typing import List, Optional
 import psycopg2
 
 from lib.db_operations import (
-    execute_fetchall_query,
     execute_query,
-    create_table_if_not_exists
+    create_table_if_not_exists,
+    execute_fetchall_query
 )
-from lib.generic_row import parse_tsv, GenericRow
+from lib.generic_row import parse_tsv
 from lib.schema import (
         TABLE_NAME_KEGG_RELATIONS,
         TABLE_STRUCTURE_KEGG_RELATIONS,
@@ -30,6 +30,8 @@ from lib.schema import (
         COLUMN_NAME_KEGG_RELATION_TYPE,
         COLUMN_NAME_KEGG_RELATION_SUBTYPE,
         COLUMN_NAME_KEGG_RELATION_SUBTYPE_NAME,
+        TABLE_NAME_ID_MAPPER,
+        COLUMN_NAME_KEGG_ACCESSION,
         )
 
 
@@ -198,3 +200,49 @@ def run_upsert_kegg_relations(
 
     conn.commit()
 
+
+def is_protein(conn: psycopg2.extensions.connection, kegg_accession: str) -> bool:
+
+    query = f"""
+SELECT COUNT(*) FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_KEGG_ACCESSION} = %s
+    """
+
+    params = (kegg_accession,)
+
+    try:
+        results = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error getting KEGG relations for {kegg_accession}")
+        raise e
+
+    return results[0][0] > 0
+
+
+def get_kegg_targets(
+        conn: psycopg2.extensions.connection,
+        kegg_accession: str,
+        ) -> List[str]:
+
+    target_kegg_accessions = []
+
+    query = f"""
+SELECT
+    {COLUMN_NAME_KEGG_RELATION_TARGET}
+FROM {TABLE_NAME_KEGG_RELATIONS}
+WHERE {COLUMN_NAME_KEGG_RELATION_SOURCE} = %s
+    """
+
+    params = (kegg_accession,)
+
+    try:
+        results = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error getting KEGG relations for {kegg_accession}")
+        raise e
+
+    for result in results:
+        if is_protein(conn, result):
+            target_kegg_accessions.append(result)
+
+    return target_kegg_accessions

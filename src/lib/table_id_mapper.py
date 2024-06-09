@@ -22,7 +22,11 @@ from lib.schema import (
     COLUMN_NAME_REFSEQ_PROTEIN_ID,
     TABLE_INDEX_ID_MAPPER,
 )
-from lib.db_operations import execute_query, create_table_if_not_exists
+from lib.db_operations import (
+        execute_query,
+        create_table_if_not_exists,
+        execute_fetchall_query,
+)
 from lib.generic_row import parse_tsv
 
 
@@ -90,6 +94,13 @@ INSERT INTO {TABLE_NAME_ID_MAPPER} (
     {COLUMN_NAME_KEGG_ACCESSION},
     {COLUMN_NAME_REFSEQ_PROTEIN_ID}
 ) VALUES (%s, %s, %s, %s, %s)
+ON CONFLICT (
+    {COLUMN_NAME_UNIPROT_ACCESSION},
+    {COLUMN_NAME_REFSEQ_LOCUS_TAG},
+    {COLUMN_NAME_LOCUS_TAG},
+    {COLUMN_NAME_KEGG_ACCESSION},
+    {COLUMN_NAME_REFSEQ_PROTEIN_ID}
+) DO NOTHING
 """
 
     params = (
@@ -159,5 +170,45 @@ def run_upsert_id_mapper(
             raise e
 
     conn.commit()
+
+
+def map_id(
+        conn: psycopg2.extensions.connection,
+        id: str,
+        ) -> List[IdMapperRecord]:
+    """
+    """
+
+    query = f"""
+SELECT
+    {COLUMN_NAME_UNIPROT_ACCESSION},
+    {COLUMN_NAME_REFSEQ_LOCUS_TAG},
+    {COLUMN_NAME_LOCUS_TAG},
+    {COLUMN_NAME_KEGG_ACCESSION},
+    {COLUMN_NAME_REFSEQ_PROTEIN_ID}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s OR
+      {COLUMN_NAME_REFSEQ_LOCUS_TAG} = %s OR
+      {COLUMN_NAME_LOCUS_TAG} = %s OR
+      {COLUMN_NAME_KEGG_ACCESSION} = %s OR
+      {COLUMN_NAME_REFSEQ_PROTEIN_ID} = %s
+"""
+
+    params = (id, id, id, id, id)
+
+    try:
+        results = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error fetching record for ID: {id}")
+        raise e
+
+    results = [IdMapperRecord(*r) for r in results]
+
+    if len(results) == 0:
+        return []
+
+    return results
+
+
 
 

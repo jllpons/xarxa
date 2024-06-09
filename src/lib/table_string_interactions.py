@@ -253,7 +253,18 @@ def run_upsert_string_interactions(
     execute_query(TABLE_INDEX_STRING_INTERACTIONS, conn)
 
     logger.info("Upserting records...")
+    # STRING interactions are **undirected**, meaning that if the combined score
+    # does not change between the A-B and B-A relations, it can be discarted.
+    relation_set = set()
     for record in records:
+
+        # Skip duplicates
+        smaller = min(record.protein_a, record.protein_b)
+        larger = max(record.protein_a, record.protein_b)
+
+        if (smaller, larger, record.combined_score) in relation_set:
+            continue
+
 
         try:
             upsert_record(record, conn)
@@ -263,5 +274,52 @@ def run_upsert_string_interactions(
             conn.rollback()
             raise e
 
+        relation_set.add((smaller, larger, record.combined_score))
+
     conn.commit()
+
+
+def get_string_targets(
+        conn: psycopg2.extensions.connection,
+        refseq_locus_tag: str,
+        threshold: int,
+        ) -> List[str]:
+
+    target_refseq_locus_tags = []
+
+    query_a = f"""
+SELECT {COLUMN_NAME_PROTEIN_B}
+FROM {TABLE_NAME_STRING_INTERACTIONS}
+WHERE {COLUMN_NAME_PROTEIN_A} = %s AND {COLUMN_NAME_COMBINED_SCORE} > %s
+"""
+
+    query_b = f"""
+SELECT {COLUMN_NAME_PROTEIN_A}
+FROM {TABLE_NAME_STRING_INTERACTIONS}
+WHERE {COLUMN_NAME_PROTEIN_B} = %s AND {COLUMN_NAME_COMBINED_SCORE} > %s
+"""
+
+    params = (refseq_locus_tag, threshold,)
+
+    logger.debug(f"Fetching STRING targets: refseq_locus_tag={refseq_locus_tag}")
+    logger.debug(f"Threshold: {threshold}")
+    logger.debug(f"Query A: {query_a}")
+    logger.debug(f"Query B: {query_b}")
+    logger.debug(f"Params: {params}")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query_a, params)
+            target_refseq_locus_tags.extend([row[0] for row in cur.fetchall()])
+
+            cur.execute(query_b, params)
+            target_refseq_locus_tags.extend([row[0] for row in cur.fetchall()])
+
+    except psycopg2.Error as e:
+        logger.error(f"Error fetching STRING targets: refseq_locus_tag={refseq_locus_tag}")
+        raise e
+
+    return target_refseq_locus_tags
+
+
 

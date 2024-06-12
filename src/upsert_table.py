@@ -61,8 +61,6 @@ Examples:
     # Add subparsers for the different table types
     table_types = parser.add_subparsers(
                     title="Table Types",
-                    #description="""The type of table to upsert data into. 
-#Run '%(prog)s <table_type> --help' for table-specific information.""",
                     dest="table_type",
                     metavar="<table_type>",
                     )
@@ -100,6 +98,9 @@ Example:
                            description="""
 The 'uniprot' table stores information retrieved from the UniProt database for
 every entry associated with the organism.
+
+Keywords, GO Terms, EC Numbers, and Post-translational Modifications are stored
+in different tables and are referenced by the 'uniprot' table.
 
 Input Format:
   - The data file should be tab-separated with the following columns:

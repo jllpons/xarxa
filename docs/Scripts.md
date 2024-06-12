@@ -1,7 +1,7 @@
 # Scripts Documentation fo Xarxa
 
 All scripts used to interact with the database are located in the `src` directory,
-although some pre-build workflows are provided in the `workflows` directory.
+although some pre-build workflows (bash scripts) are provided in the `workflows` directory.
 
 All scripts provide a help message that can be accessed by running the script with the `-h` or `--help` option. The help message will provide information about the script's purpose, usage, options and some examples.
 
@@ -10,8 +10,8 @@ other information, such as logs, warnings, and error messages, are printed to th
 
 The scripts are designed to be run in pipelines, where the output of one script is the input of the next one. Data fetching and processing has been separated for easier debugging and maintenance.
 
-Data format of choice is a tabular file, where each row represents a record and each column represents a field for that record. Columns are separated by tabs. Columns may contain different types of data, such as strings, integers, arrays, or no value at all. Each type
-representation is described below:
+Data format of choice is tabular, where each row represents a record and each column represents a field/atribute for that record. Columns are separated by tabs. Columns may contain different types of data, such as strings, integers, arrays, or no value at all. Each type representation is described below:
+
 - Strings are represented as they are.
 - Integers are represented as they are.
 - Arrays are represented as a string with the elements separated by semicolons.
@@ -45,7 +45,9 @@ P12348  LT5  R12348;R12349  -  600  700  NULL
 
 ### Data Fetching Scripts
 
-Scripts used to fetch data from external sources. These scripts are designed to retrieve data from various sources and format it for insertion into the database.
+Scripts used to fetch data from external sources. 
+
+These scripts are designed to retrieve data from various sources and format it for further processing or insertion into the database.
 
 The fetched data is printed to stdout in a tab-separated format. **No headers are included in the output.**
 
@@ -54,7 +56,7 @@ The fetched data is printed to stdout in a tab-separated format. **No headers ar
 - [`fetch_kegg_organism.py`](#fetch_kegg_organismpy)
 - [`fetch_kegg_relations.py`](#fetch_kegg_relationspy)
 - [`fetch_refseq_genome.py`](#fetch_refseq_genomepy)
-- [`fetch_uniprot_organism_json_entry.py`](#fetch_uniprot_organism_json_entrypy)
+- [`fetch_uniprot_organism_json.py`](#fetch_uniprot_organism_jsonpy)
 
 ### Data Preprocessing Scripts
 
@@ -65,6 +67,7 @@ The formatted data is printed to stdout in a tab-separated format. **No headers 
 #### Links:
 
 - [`process_uniprot_json_entry.py`](#process_uniprot_json_entrypy)
+- [`match_ids.py`](#match_idspy)
 
 ### Data Insertion/Update Scripts
 
@@ -84,16 +87,85 @@ Scripts for database maintenance tasks such as backup, data cleaning, and perfor
 #### Links:
 
 
+- [`build_graph.py`](#build_graphpy)
 - [`printval.py`](#printvalpy)
 - [`tab_to_fasta.py`](#tab_to_fastapy)
 
 ## Script Details
 
+### build_graph.py
+
+#### Description
+
+Given a list of  identifiers, this script will build a graph representing the
+relationships where the identifiers are involved.
+
+Relationships are defined by the following rules:
+
+1. If the query identifier acts as a source in any of the KEGG relationships,
+   the relationship is added to the graph as a directed edge.
+2. If the query identifier is found as source in any of the STRING relationships,
+   the combined score is higher than a given threshold and the relationship
+   is not already present in the graph, the relationship is added to the graph
+   as an undirected edge.
+
+The degree of neighbors for which the graph is built can be controlled with the
+'-d / --depth' option. By default, the graph will only contain the query identifier
+and the relationships in which it is involved (depth=1). A depth of 2 will include
+the second degree neighbors or, in other words, the neighbors of the neighbors of the
+query identifier(s).
+
+#### Usage
+
+```shell
+python src/build_graph.py [options] <file>
+```
+
+#### Parameters
+
+| Parameter | Description | Type | Default Value | Required |
+|-----------|-------------|------|---------------|----------|
+| `<file>` | File containing list of identifiers, or '-' for stdin | String | '-' | Yes |
+| `--depth` | Depth of the graph | Integer | 1 | No |
+|  `-S`, `--string-threshold` | STRING combined score threshold. Range: 0-1000 | Integer | 800 | No |
+| `--db` | Database connection string | String | Reads from `config/database.json` | No |
+| `--log` | Log file path | String | INFO | No |
+| `-h`, `--help` | Show help message | - | - | No |
+
+#### Output
+
+**Comma separated values** representing the graph
+
+| Column name | Type | Description |
+|-------------|------|-------------|
+| Source | String | The source identifier |
+| Target | String | The target identifier |
+| Directed | Boolean | True if the edge is directed, False otherwise |
+| Source | String | The source where the relationship was extracted from |
+| Weight | Float | The weight of the edge |
+
+#### Examples
+
+Build a graph for a list of identifiers:
+```shell
+python src/build_graph.py data/identifiers.txt
+```
+
+Build a graph for a list of identifiers with a depth of 2:
+```shell
+python src/build_graph.py data/identifiers.txt -d 2
+```
+
+Build a graph for a list of identifiers with a STRING combined score threshold of 900:
+```shell
+python src/build_graph.py data/identifiers.txt -S 900
+```
+
 ### fetch_kegg_organism.py
 
 #### Description
 
-Fetches all KEGG entries for a specified organism.
+Fetches all KEGG entries for a specified organism, including pathways and orthologies. The script prints the data to stdout in a tab-separated format.
 
 #### Usage
 
@@ -138,7 +210,10 @@ python src/fetch_kegg_organism.py sml | tee data.log | python process_data.py
 
 #### Description
 
-Given a KEGG organism code, fetches all the relations for each pathway in the organism.
+
+Given a KEGG organism code:
+1. Fetches the KGML file for each pathway belonging to the organism.
+2. Extracts all the relations for each pathway.
 
 #### Usage
 
@@ -176,42 +251,6 @@ Chain data fetching and processing:
 ```bash
 python src/fetch_kegg_relations.py sml | tee data.log | python process_data.py
 ```
-
-### fetch_uniprot_organism_json_entry.py
-
-#### Description
-
-Fetches all UniProt entries for a specified organism. The script fetches the JSON entry for each UniProt entry and prints it to stdout.
-
-
-#### Usage
-
-```shell
-python src/fetch_uniprot_organism_json_entry.py [options] <taxon_id>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<taxon_id>` | Taxon ID of the organism | Integer | - | Yes |
-| `--log` | log file path | string | info | no |
-| `-h`, `--help` | show help message | - | - | no |
-
-#### Output
-
-A JSON file containing `results` as the root key. Each entry in the `results` array is a JSON object representing a UniProt entry.
-
-
-#### Examples
-
-Fetch UniProt entries for a specific taxon ID:
-```bash
-python src/fetch_uniprot_organism_json_entry.py 522373
-```
-
-EOF
------ 
 
 ### fetch_refseq_genome.py
 
@@ -269,17 +308,16 @@ translate the sequence. When translating a pseudogene,
 the translation table is not specified and when a stop codon is found, the
 translation is stopped.
 
-### fetch_uniprot_organism_ids.py
+### fetch_uniprot_organism_json_entry.py
 
 #### Description
 
-Retrieves all UniProt database entries for a specified organism given its taxon ID.
-Collects relevant IDs and mappings for each entry and prints them to stdout in a tab-separated format.
+Fetches all UniProt entries for a specified taxon ID. The script prints the data to stdout in a JSON format.
 
 #### Usage
 
 ```shell
-python src/fetch_uniprot_organism_ids.py [options] <taxon_id>
+python src/fetch_uniprot_organism_json_entry.py [options] <taxon_id>
 ```
 
 #### Parameters
@@ -292,138 +330,77 @@ python src/fetch_uniprot_organism_ids.py [options] <taxon_id>
 
 #### Output
 
-A tab-separated file including:
-
-| Column name | Type | Description |
-|-------------|------|-------------|
-| UniProt Primary Accession | String | The UniProtKB primary accession number |
-| Locus Tag | Array\[String\] | The locus tag(s) of the protein, separated by semicolons |
-| RefSeq Accession | Array\[String\] | The RefSeq accession number(s), separated by semicolons |
-| EMBL Protein ID | String | The EMBL protein ID |
-| KEGG Accession | Array\[String\] | The KEGG accession number(s), separated by semicolons |
+A JSON file containing `results` as the root key.
+Each entry in the different arrays from the `results` array is a JSON object representing a UniProt entry.
 
 #### Examples
 
-Fetch UniProt IDs for a specific taxon ID:
+Fetch UniProt entries for a specific taxon ID:
 ```bash
-python src/fetch_uniprot_organism_ids.py 522373
+python src/fetch_uniprot_organism_json_entry.py 522373
 ```
 
-Save fetched data to a file:
-```bash
-python src/fetch_uniprot_organism_ids.py 522373 > uniprot_data.txt
-```
-
-Chain data fetching and processing:
-```bash
-python src/fetch_uniprot_organism_ids.py 522373 | tee data.log | python process_data.py
-```
-
-#### Troubleshooting
-
-Example of API request made by the script: <https://rest.uniprot.org/uniprotkb/stream?query=organism_id:522373&fields=accession,gene_oln,gene_orf,xref_refseq,xref_kegg&format=tsv>
-
-Notice that the fields requested the UniProt API are actually:
-- `accession`: UniProt Primary Accession
-- `gene_oln`: Ordered Locus Name. See UniProt [documentation](<https://www.uniprot.org/help/gene_name>) for more information.
-- `gene_orf`: Open Reading Frame. See UniProt [documentation](<https://www.uniprot.org/help/gene_name>) for more information.
-- `xref_refseq`: RefSeq Accession
-- `xref_kegg`: KEGG Accession
-
-Both `xref_refseq` and `xref_kegg` are arrays, so they will be represented as 
-strings with the elements separated by semicolons. If not empty, an additional
-semicolon is always added at the end of the string.
-
-Surprisingly, while `gene_oln` and `gene_orf` are also arrays, an empty space
-character is used as a separator. I  wouldn't be surprised if at some point they
-decide to change the separator character. **After retreiving the data, both fields will
-be merged into the Old Locus Tag column**
-
-The EMBL Protein ID is not an available field in the UniProt API. The solution
-is to access the JSON file for each entry individually and extract the EMBL Protein ID from it.
-
-### generate_enums.py
+### match_ids.py
 
 #### Description
 
-Connect to the database and generate/update the enum types based on the configuration file.
+Creates a ID map file using the IDs from three different inputs: UniProt, RefSeq, and KEGG.
+The generated file will map the different IDs present in the database.
 
 #### Usage
 
 ```shell
-python src/generate_enums.py [options]
+python src/match_ids.py [options] <uniprot> <refseq> <kegg>
 ```
 
 #### Parameters
 
 | Parameter | Description | Type | Default Value | Required |
 |-----------|-------------|------|---------------|----------|
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
+| `<uniprot>` | UniProt ID file path | String | - | Yes |
+| `<refseq>` | RefSeq ID file path | String | - | Yes |
+| `<kegg>` | KEGG ID file path | String | - | Yes |
+| `--log` | log file path | string | info | no |
+
+#### Input Files
+
+Input Format (UniProt):
+| Column name | Type | Description |
+|-------------|------|-------------|
+| UniProt Primary Accession Number | String | The UniProt primary accession number |
+| Locus Tag | Array\[String\] | The locus tag(s) of the protein, separated by semicolons |
+| ORF Names | Array\[String\] | The ORF name(s) of the protein, separated by semicolons |
+| KEGG Accession Number | Array\[String\] | The KEGG accession number(s) of the protein, separated by semicolons |
+| RefSeq Protein ID | String | The RefSeq protein ID |
+
+Input Format (RefSeq):
+| Column name | Type | Description |
+|-------------|------|-------------|
+| RefSeq Locus Tag | String | The RefSeq locus tag |
+| Locus Tag | Array\[String\] | The locus tag(s) of the protein, separated by semicolons |
+| RefSeq Accession | String | The RefSeq accession number |
+
+Input Format (KEGG):
+| Column name | Type | Description |
+|-------------|------|-------------|
+| KEGG Accession | String | The KEGG accession number |
 
 #### Output
-
-None
-
-### preprocess_peptide_ptm_data.py
-
-#### Description
-
-Preprocess Proteomics Experimental Data.
-
-More specifically, this script preprocesses the peptide PTM data produced by
-the Thermo Fisher Scientific Proteome Discoverer software (version 2.5).
-Accepts a single input file in tab-delimited format, containing **ONLY** the
-following columns:
-    1. Protein ID (Master Protein Accessions)
-    2. PTMs (Modifications)
-    3. Peptide Sequence (Sequence)
-    4. Position in Master Protein (Position in Master Protein)
-    5. PSM Ambiguity (PSM Ambiguity)
-    6. Posterior Error Probability (PEP)
-    7. q-value (q-value)
-    8. Number of Protein Groups (# Protein Groups)
-    9. Search Engine Confidence (Confidence)
-
-Essentially, the script will retrain any record that has PTMs in the "PTMs"
-column and generate one record for every PTM found in every peptide sequence.
-
-#### Usage
-
-```shell
-python src/preprocess_peptide_ptm_data.py [options] <file>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-
-#### Input Format
-
-The expected input format is a tab-separated file. The `.xlsx` file output by
-Proteome Discoverer can be converted to a tab-separated file using Excel. Then, 
-a single file containing the columns mentioned below is expected.
 
 | Column name | Type | Description |
 |-------------|------|-------------|
-| Protein ID | String | The ID of the protein |
-| PTMs | String | The modifications |
-| Peptide Sequence | String | The sequence of the peptide |
-| Position in Master Protein | Integer | The position in the master protein |
-| PSM Ambiguity | Integer | The PSM ambiguity |
-| Posterior Error Probability | Float | The posterior error probability |
-| q-value | Float | The q-value |
-| Number of Protein Groups | Integer | The number of protein groups |
-| Search Engine Confidence | String | The confidence of the search engine |
+| UniProt Primary Accession Number | String | The UniProt primary accession number |
+| RefSeq Locus Tag | String | The RefSeq locus tag |
+| Locus Tag | Array\[String\] | The locus tag(s) of the protein, separated by semicolons |
+| KEGG Accession Number | Array\[String\] | The KEGG accession number(s) of the protein, separated by semicolons |
+| RefSeq Protein ID | String | The RefSeq protein ID |
 
-#### Output
+#### Examples
 
+Match IDs from different sources:
+```bash
+python src/match_ids.py data/uniprot_data.tsv data/refseq_data.tsv data/kegg_data.tsv
+```
 
 ### printval.py
 
@@ -441,9 +418,8 @@ python src/printval.py [options] <table> <columns>
 
 | Parameter | Description | Type | Default Value | Required |
 |-----------|-------------|------|---------------|----------|
-| `<table>` | Name of the database table to query. Use 'list' to display all tables. Use 'enum' to display the enum types in the database. | String | 'list' | Yes |
-| `<columns>` | Specific columns to display. Use commas for separating multiple columns. Use 'list' to display all columns. Use the enum type name to display all values of the enum type if previous argument is 'enum'. | String | 'list' | No |
-| `--protein-type` | If the table contains a 'protein_type' column, filter by this value. See 'protein_type' enum in the database schema for possible values. | String | - | No |
+| `<table>` | Name of the database table to query. Use 'list' to display all tables. | String | 'list' | Yes |
+| `<columns>` | Specific columns to display. Use commas for separating multiple columns. Use 'list' to display all columns. | String | 'list' | No |
 | `--db` | Database connection string | String | Reads from `config/database.json` | No |
 | `--log` | Log file path | String | INFO | No |
 | `-h`, `--help` | Show help message | - | - | No |
@@ -461,37 +437,116 @@ python src/printval.py list
 
 Display all columns from the 'uniprot_protein' table:
 ```shell
-python src/printval.py uniprot_protein list
+python src/printval.py uniprot list
 ```
 
 Fetch all 'uniprot_accession' from 'uniprot_protein':
 ```shell
-python src/printval.py uniprot_protein uniprot_accession
+python src/printval.py uniprot uniprot_accession
 ```
 
-Retrieve 'uniprot_accession', 'go_function', and 'go_process' from 'uniprot_protein':
+Retrieve 'uniprot_accession', 'locus_tag' from 'ec_number':
 ```shell
-python src/printval.py uniprot_protein uniprot_accession,go_function,go_process
+python src/printval.py uniprot uniprot_accession,locus_tag,ec_number
 ```
 
-Retrieve 'uniprot_accession' from 'uniprot_protein' where 'protein_type' is 'kinase':
+Retrieve 'uniprot_accession' from 'uniprot_keyword' where 'keyword' is 'KW-0418':
 ```shell
-python src/printval.py uniprot_protein uniprot_accession --protein-type kinase
+python src/printval.py uniprot_keyword uniprot_accession | grep "KW-0418" | cut -f 1
 ```
 
-Retrive 'target_with_participant' from 'kegg_relations' where 'protein_type' of the query protein is 'kinase':
+### process_uniprot_json_entry.py
+
+#### Description
+
+Given a JSON file containing one or multiple UniProt entries, as retrieved from the UniProt API,
+this script will extract the relevant information and write it to a tab-separated file.
+
+#### Usage
+
 ```shell
-python src/printval.py kegg_relations target_with_participant --protein-type kinase
+python src/process_uniprot_json_entry.py [options] <file>
 ```
 
-List all enum types in the database:
+#### Parameters
+
+| Parameter | Description | Type | Default Value | Required |
+|-----------|-------------|------|---------------|----------|
+| `<file>` | File containing UniProt JSON entries, or '-' for stdin | String | '-' | Yes |
+| `--log` | Log file path | String | INFO | No |
+| `-h`, `--help` | Show help message | - | - | No |
+
+#### Output
+
+| Column name | Type | Description |
+|-------------|------|-------------|
+| Primary Accession | String | The primary UniProt accession number |
+| Locus Tag | Array\[String\] | The locus tag(s) of the protein, separated by semicolons |
+| ORF Names | Array\[String\] | The ORF name(s) of the protein, separated by semicolons |
+| KEGG Accession | Array\[String\] | The KEGG accession number(s) of the protein, separated by semicolons |
+| RefSeq Protein ID | String | The RefSeq protein ID |
+| EMBL Protein ID | String | The EMBL protein ID |
+| Keywords | Array\[String\] | The keywords associated with the protein, separated by semicolons |
+| Protein Name | String | The name of the protein |
+| Protein Existence | Integer | The protein existence |
+| Sequence | String | The sequence of the protein |
+| GO Terms | Array\[String\] | The GO terms associated with the protein, separated by semicolons |
+| EC Numbers | Array\[String\] | The EC numbers associated with the protein, separated by semicolons |
+| Post-translational Modifications | String | The post-translational modifications in JSON format |
+
+#### Examples
+
+Process a JSON file containing UniProt entries:
 ```shell
-python src/printval.py enum
+python src/process_uniprot_json_entry.py data/uniprot_data.json
 ```
 
-List all values of the 'protein_type' enum:
+Process a JSON file containing UniProt entries and save the output to a file:
 ```shell
-python src/printval.py enum protein_type
+python src/process_uniprot_json_entry.py data/uniprot_data.json > uniprot_data.tsv
+```
+
+### tab_to_fasta.py
+
+#### Description
+
+Converts a tab-separated file containing protein sequences to a FASTA file.
+
+#### Usage
+
+```shell
+python src/tab_to_fasta.py [options] <file>
+```
+
+#### Parameters
+
+| Parameter | Description | Type | Default Value | Required |
+|-----------|-------------|------|---------------|----------|
+| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
+| `--log` | Log file path | String | INFO | No |
+| `-h`, `--help` | Show help message | - | - | No |
+
+#### Input Format
+
+| Column name | Type | Description |
+|-------------|------|-------------|
+| Identifier | String | The identifier of the protein |
+| Sequence | String | The sequence of the protein |
+
+#### Output
+
+A FASTA file containing the protein sequences.
+
+#### Examples
+
+Convert a tab-separated file to a FASTA file:
+```shell
+python src/tab_to_fasta.py data/protein_sequences.tsv
+```
+
+Convert a tab-separated file to a FASTA file and save the output to a file:
+```shell
+python src/printval.py refseq refseq_locus_tag,translated_protein_sequence | python src/tab_to_fasta.py > proteome.fasta
 ```
 
 ## upsert_table.py
@@ -513,351 +568,48 @@ python src/upsert_table.py <table_type> -h
 
 ### Table Types
 
-### uniprot_organism
+#### id_mappper
 
-#### Usage
+##### Input Format
 
-```shell
-python src/upsert_table.py uniprot_organism [options] <file>
-```
+Expects the output generated by the [`match_ids.py`](#match_idspy) script.
 
-#### Parameters
+#### uniprot
 
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log`| Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
+##### Input Format
 
 The expected input format is a tab-separated file
-as the one generated by the `fetch_uniprot_organism_ids.py` script. See [fetch_uniprot_organism_ids.py](#fetch_uniprot_organism_idspy) for more information.
+as the one generated by the [`process_uniprot_json_entry.py`](#process_uniprot_json_entrypy) script.
 
-#### Example
+#### refseq
 
-```shell
-python src/upsert_table.py uniprot_organism data/uniprot_data.tsv
-```
+##### Input Format
 
-```shell
-python src/fetch_uniprot_organism_ids.py 522373 | python src/upsert_table.py uniprot_organism
-```
+The expected input format is a tab-separated file as the one generated by the `fetch_refseq_genome.py` script. See [fetch_refseq_genbank_genome.py](#fetch_refseq_genomepy) for more information.
 
-### refseq_genome
+#### kegg
 
-#### Usage
+##### Input Format
 
-```shell
-python src/upsert_table.py refseq_genome [options] <file>
-```
+The expected input format is a tab-separated file as the one generated by the `fetch_kegg_organism.py` script. See [fetch_kegg_organism.py](#fetch_kegg_organismpy) for more information.
 
-#### Parameters
+#### kegg_relations
 
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
+##### Input Format
 
-#### Input Format
+Expects the output generated by the [`fetch_kegg_relations.py`](#fetch_kegg_relationspy) script.
 
-The expected input format is a tab-separated file as the one generated by the `fetch_refseq_genbank_genome.py` script. See [fetch_refseq_genbank_genome.py](#fetch_refseq_genbank_genomepy) for more information.
+#### string_interactions
 
-#### Example
-
-```shell
-python src/upsert_table.py refseq_genome data/refseq_data.tsv
-```
-
-```shell
-python src/fetch_refseq_genbank_genome.py data/genbank_file.gb | python src/upsert_table.py refseq_genome
-```
-
-### kegg_organism
-
-#### Usage
-
-```shell
-python src/upsert_table.py kegg_organism [options] <file>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-The expected input format is a tab-separated file as the one generated by the `fetch_kegg_organism_ids.py` script. See [fetch_kegg_organism_ids.py](#fetch_kegg_organism_idspy) for more information.
-
-#### Example
-
-```shell
-python src/upsert_table.py kegg_organism data/kegg_data.tsv
-```
-
-```shell
-python src/fetch_kegg_organism_ids.py sml | python src/upsert_table.py kegg_organism
-```
-
-### uniprot_protein
-
-#### Usage
-
-```shell
-python src/upsert_table.py uniprot_protein [options] <file> <protein_type>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<protein_type>` | Protein type | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-The expected input format is a tab-separated file as the one generated by the `fetch_uniprot_query.py` script. See [fetch_uniprot_query.py](#fetch_uniprot_querypy) for more information.
-
-#### Example
-
-```shell
-python src/upsert_table.py uniprot_protein data/uniprot_protein_data.tsv "<protein_type>"
-```
-
-```shell
-python src/fetch_uniprot_query.py --keyword "KW-0418" --taxid 9606 | python src/upsert_table.py uniprot_protein "kinase"
-```
-
-### kegg_relations
-
-#### Usage
-
-```shell
-python src/upsert_table.py kegg_relations [options] <file> <protein_type>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<protein_type>` | Protein type | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-The expected input format is a tab-separated file as the one generated by the `fetch_kegg_relations.py` script. See [fetch_kegg_relations.py](#fetch_kegg_relationspy) for more information.
-
-#### Example
-
-```shell
-python src/upsert_table.py kegg_relations data/kegg_relations_data.tsv "<protein_type>"
-```
-
-```shell
-python src/fetch_kegg_relations.py kegg_data.txt | python src/upsert_table.py kegg_relations "kinase"
-```
-
-### string_interactions
-
-#### Usage
-
-```shell
-python src/upsert_table.py string_interactions [options] <file> <id_type>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<id_type>` | ID type | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
+##### Input Format
 
 See the [Data Preprocessing](DataPreprocessing.html) section for more information about the expected input format.
 
-#### Example
+#### experimental_condition
 
-```shell
-python src/upsert_table.py string_interactions data/string_interactions_data_formatted.tsv "refseq_locus_tag"
-```
+#### transcroptomics
 
-### transcriptomics_quantification
+#### transcriptomics_counts
 
-#### Usage
 
-```shell
-python src/upsert_table.py transcriptomics_quantification [options] <file> <id_type> <sample>
-```
 
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<id_type>` | ID type | String | - | Yes |
-| `<sample>` | Sample name | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-| Column name | Type | Description |
-|-------------|------|-------------|
-| ID | String | The ID of the gene |
-| Replicate 1 Read Count | Float | The read count for replicate 1 |
-| Replicate 2 Read Count | Float | The read count for replicate 2 |
-| Replicate 3 Read Count | Float | The read count for replicate 3 |
-| Replicate 1 Normalized Read Count | Float | The normalized read count for replicate 1 |
-| Replicate 2 Normalized Read Count | Float | The normalized read count for replicate 2 |
-| Replicate 3 Normalized Read Count | Float | The normalized read count for replicate 3 |
-
-See the [Data Preprocessing](DataPreprocessing.html) section for more information about how to format the data.
-
-#### Example
-
-```shell
-python src/upsert_table.py transcriptomics_quantification data/transcriptomics_quantification_data_formatted.tsv "refseq_locus_tag" "control"
-```
-
-### transcriptomics_differential
-
-#### Usage
-
-```shell
-python src/upsert_table.py transcriptomics_differential [options] <file> <id_type> <condition>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<id_type>` | ID type | String | - | Yes |
-| `<condition>` | Condition name | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-| Column name | Type | Description |
-|-------------|------|-------------|
-| ID | String | The ID of the gene |
-| Log2 Fold Change | Float | The log2 fold change |
-| P Value | Float | The p-value |
-| Adjusted P Value | Float | The adjusted p-value |
-
-See the [Data Preprocessing](DataPreprocessing.html) section for more information about
-how to format the data.
-
-#### Example
-
-```shell
-python src/upsert_table.py transcriptomics_differential data/transcriptomics_differential_data_formatted.tsv "refseq_locus_tag" "control"
-```
-
-### proteomics_quantification
-
-#### Usage
-
-```shell
-python src/upsert_table.py proteomics_quantification [options] <file> <id_type> <sample>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<id_type>` | ID type | String | - | Yes |
-| `<sample>` | Sample name | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-| Column name | Type | Description |
-|-------------|------|-------------|
-| Protein ID | String | The ID of the protein |
-| Sequence | String | The sequence of the protein |
-| Sum Posterior Error Probability | Float | The sum of the posterior error probabilities |
-| Combined Q-Value | Float | The combined q-value |
-| Replicate 1 Abundance | Float | The abundance for replicate 1 |
-| Replicate 2 Abundance | Float | The abundance for replicate 2 |
-| Replicate 3 Abundance | Float | The abundance for replicate 3 |
-| Replicate 1 Normalized Abundance | Float | The normalized abundance for replicate 1 |
-| Replicate 2 Normalized Abundance | Float | The normalized abundance for replicate 2 |
-| Replicate 3 Normalized Abundance | Float | The normalized abundance for replicate 3 |
-| Replicate 1 Abundance Count | Integer | The abundance count for replicate 1 |
-| Replicate 2 Abundance Count | Integer | The abundance count for replicate 2 |
-| Replicate 3 Abundance Count | Integer | The abundance count for replicate 3 |
-
-See the [Data Preprocessing](DataPreprocessing.html) section for more information about how to format the data.
-
-#### Example
-
-```shell
-python src/upsert_table.py proteomics_quantification data/proteomics_quantification_data_formatted.tsv "uniprot_accession" "control"
-```
-
-### proteomics_peptide_ptm
-
-#### Usage
-
-```shell
-python src/upsert_table.py proteomics_peptide_ptm [options] <file> <id_type> <sample>
-```
-
-#### Parameters
-
-| Parameter | Description | Type | Default Value | Required |
-|-----------|-------------|------|---------------|----------|
-| `<file>` | File containing tabular data, or '-' for stdin | String | '-' | Yes |
-| `<id_type>` | ID type | String | - | Yes |
-| `<sample>` | Sample name | String | - | Yes |
-| `--db` | Database connection string | String | Reads from `config/database.json` | No |
-| `--log` | Log file path | String | INFO | No |
-| `-h`, `--help` | Show help message | - | - | No |
-
-#### Input Format
-
-| Column name | Type | Description |
-|-------------|------|-------------|
-| Protein ID | String | The ID of the protein |
-| Modification Type | String | The type of modification |
-| Site | String | The site of the modification |
-| Sequence | String | The sequence of the peptide |
-| Start Position in Complete Protein | Integer | The start position of the peptide in the complete protein |
-| End Position in Complete Protein | Integer | The end position of the peptide in the complete protein |
-| Posterior Error Probability | Float | The posterior error probability |
-| Q-Value | Float | The q-value |
-| Number of Protein Groups | Integer | The number of protein groups |
-| Search Engine Confidence | Text | The search engine confidence |
-
-See the [Data Preprocessing](DataPreprocessing.html) section for more information about how to format the data.
-
-#### Example
-
-```shell
-python src/upsert_table.py proteomics_peptide_ptm data/proteomics_peptide_ptm_data_formatted.tsv "uniprot_accession" "control"
-```

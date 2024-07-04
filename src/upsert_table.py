@@ -107,16 +107,17 @@ Input Format:
     1. UniProt Accession
     2. Locus Tag (if multiple values, separated by ';')
     3. ORF Name (if multiple values, separated by ';')
-    4. KEGG Accession (if multiple values, separated by ';')
-    5. EMBL Protein ID
-    6. RefSeq Accession (if multiple values, separated by ';')
-    7. Keywords (if multiple values, separated by ';')
-    8. Protein Name
-    9. Protein Existence
-    10. Sequence
-    11. GO Terms (if multiple values, separated by ';')
-    12. EC Number (if multiple values, separated by ';')
-    13. Post-translational Modifications (valid JSON array)
+    4. Gene Name
+    5. KEGG Accession (if multiple values, separated by ';')
+    6. EMBL Protein ID
+    7. RefSeq Accession (if multiple values, separated by ';')
+    8. Keywords (if multiple values, separated by ';')
+    9. Protein Name
+    10. Protein Existence
+    11. Sequence
+    12. GO Terms (if multiple values, separated by ';')
+    13. EC Number (if multiple values, separated by ';')
+    14. Post-translational Modifications (valid JSON array)
 
 See `src/fetch_uniprot_organism_json.py` and `src/process_uniprot_json_entry.py`
 for details on generating a compatible data file.

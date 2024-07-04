@@ -14,6 +14,7 @@ from typing import List, Optional
 import psycopg2
 
 from lib.db_operations import (
+    execute_fetchall_query,
     execute_query,
     create_table_if_not_exists
 )
@@ -195,5 +196,47 @@ def run_upsert_transcriptomics(
             conn.rollback()
             raise e
 
-
     conn.commit()
+
+
+def get_log2_fold_change(
+        conn: psycopg2.extensions.connection,
+        experimental_id: str,
+        condition_a: str,
+        condition_b: str
+) -> float | None:
+    """
+    Given an experimental ID and two conditions, this function retrieves the log2 fold
+    change value from the 'transcriptomics' table in the database.
+
+    Args:
+        conn: The psycopg2 connection object.
+        experimental_id (str): The experimental ID.
+        condition_a (str): The name of the first condition.
+        condition_b (str): The name of the second condition.
+
+    Returns:
+        float | None: The log2 fold change value or None if the record is not found.
+    """
+
+    query = f"""
+SELECT {COLUMN_NAME_LOG2_FOLD_CHANGE}
+FROM {TABLE_NAME_TRANSCRIPTOMICS}
+WHERE {COLUMN_NAME_EXPERIMENTAL_ID} = %s
+AND {COLUMN_NAME_CONDITION_A} = %s
+AND {COLUMN_NAME_CONDITION_B} = %s
+"""
+
+    params = (experimental_id, condition_a, condition_b)
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error retrieving log2 fold change for {experimental_id}")
+        logger.error(e)
+        raise e
+
+    if result:
+        return result[0][0]
+
+    return None

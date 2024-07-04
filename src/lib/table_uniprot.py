@@ -21,6 +21,7 @@ from lib.schema import (
     COLUMN_NAME_UNIPROT_ACCESSION,
     COLUMN_NAME_LOCUS_TAG,
     COLUMN_NAME_ORF_NAME,
+    COLUMN_NAME_GENE_NAME,
     COLUMN_NAME_KEGG_ACCESSION,
     COLUMN_NAME_REFSEQ_PROTEIN_ID,
     COLUMN_NAME_EMBL_PROTEIN_ID,
@@ -46,7 +47,11 @@ from lib.schema import (
     TABLE_STRUCTURE_UNIPROT_PTM,
     TABLE_INDEX_UNIPROT_PTM,
 )
-from lib.db_operations import execute_query, create_table_if_not_exists
+from lib.db_operations import (
+    execute_fetchall_query,
+    execute_query,
+    create_table_if_not_exists
+)
 from lib.generic_row import parse_tsv
 
 
@@ -54,6 +59,7 @@ TSV_FORMAT_SCHEMA_UNIPROT_PROTEIN = {
     "uniprot_accession": str,
     "locus_tag": list,
     "orf_name": list,
+    "gene_name": str,
     "kegg_accession": list,
     "refseq_protein_id": str,
     "embl_protein_id": str,
@@ -73,6 +79,7 @@ class UniprotRecord:
 
     locus_tag: Optional[List[str]] = None
     orf_name: Optional[List[str]] = None
+    gene_name: Optional[str] = None
     kegg_accession: Optional[List[str]] = None
     refseq_protein_id: Optional[List[str]] = None
     embl_protein_id: Optional[str] = None
@@ -148,6 +155,7 @@ INSERT INTO {TABLE_NAME_UNIPROT} (
     {COLUMN_NAME_UNIPROT_ACCESSION},
     {COLUMN_NAME_LOCUS_TAG},
     {COLUMN_NAME_ORF_NAME},
+    {COLUMN_NAME_GENE_NAME},
     {COLUMN_NAME_KEGG_ACCESSION},
     {COLUMN_NAME_REFSEQ_PROTEIN_ID},
     {COLUMN_NAME_EMBL_PROTEIN_ID},
@@ -155,12 +163,13 @@ INSERT INTO {TABLE_NAME_UNIPROT} (
     {COLUMN_NAME_PROTEIN_EXISTENCE},
     {COLUMN_NAME_SEQUENCE}
 ) VALUES (
-    %s, %s, %s, %s, %s, %s, %s, %s, %s
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
 )
 ON CONFLICT ({COLUMN_NAME_UNIPROT_ACCESSION})
 DO UPDATE SET
     {COLUMN_NAME_LOCUS_TAG} = EXCLUDED.{COLUMN_NAME_LOCUS_TAG},
     {COLUMN_NAME_ORF_NAME} = EXCLUDED.{COLUMN_NAME_ORF_NAME},
+    {COLUMN_NAME_GENE_NAME} = EXCLUDED.{COLUMN_NAME_GENE_NAME},
     {COLUMN_NAME_KEGG_ACCESSION} = EXCLUDED.{COLUMN_NAME_KEGG_ACCESSION},
     {COLUMN_NAME_REFSEQ_PROTEIN_ID} = EXCLUDED.{COLUMN_NAME_REFSEQ_PROTEIN_ID},
     {COLUMN_NAME_EMBL_PROTEIN_ID} = EXCLUDED.{COLUMN_NAME_EMBL_PROTEIN_ID},
@@ -173,6 +182,7 @@ DO UPDATE SET
         record.uniprot_accession,
         record.locus_tag,
         record.orf_name,
+        record.gene_name,
         record.kegg_accession,
         record.refseq_protein_id,
         record.embl_protein_id,
@@ -478,3 +488,31 @@ def run_upsert_uniprot(
     conn.commit()
 
 
+def get_gene_name(uniprot_accession: str, conn: psycopg2.extensions.connection) -> str:
+    """
+    Given a UniProt accession, this function queries the database to retrieve
+    the gene name associated with the accession.
+
+    Args:
+        uniprot_accession: A UniProt accession
+        conn: A psycopg2 connection object
+
+    Returns:
+        str: The gene name associated with the UniProt accession
+    """
+
+    query = f"""
+SELECT {COLUMN_NAME_GENE_NAME}
+FROM {TABLE_NAME_UNIPROT}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
+"""
+
+    params = (uniprot_accession,)
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error retrieving gene name for UniProt accession: {uniprot_accession}")
+        raise e
+
+    return result[0][0]

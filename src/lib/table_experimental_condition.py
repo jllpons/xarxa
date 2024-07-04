@@ -13,6 +13,7 @@ from typing import List, Optional
 import psycopg2
 
 from lib.db_operations import (
+    execute_fetchall_query,
     execute_query,
     create_table_if_not_exists
 )
@@ -174,3 +175,45 @@ def run_upsert_experimental_condition(
 
 
     conn.commit()
+
+
+def condition_is_valid(
+        conn: psycopg2.extensions.connection,
+        experiment_type: str,
+        condition: str,
+) -> bool:
+    """
+    Given a psycopg2 connection object, an experiment type, and a condition,
+    this function checks if the condition is valid for the given experiment type.
+
+    Args:
+        conn: The psycopg2 connection object.
+        experiment_type (str): The experiment type.
+        condition (str): The condition to check.
+
+    Returns:
+        bool: True if the condition is valid, False otherwise.
+    """
+
+    query = f"""
+SELECT EXISTS (
+    SELECT 1
+    FROM {TABLE_NAME_EXPERIMENTAL_CONDITION}
+    WHERE {COLUMN_NAME_EXPERIMENTAL_CONDITION_NAME} = %s
+    AND {COLUMN_NAME_EXPERIMENTAL_CONDITION_TYPE} = %s
+)
+"""
+
+    params = (
+        condition,
+        experiment_type,
+    )
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error checking if condition is valid: {condition}")
+        raise e
+
+    return result[0][0]
+

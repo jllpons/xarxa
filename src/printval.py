@@ -80,7 +80,7 @@ For more detailed information, see the `docs` directory.
             type=str,
             default="list",
             nargs="?",
-            help="Specific columns to display. Use commas for separating multiple columns. Use 'list' to display all columns. ")
+            help="Specific columns to display. Use commas for separating multiple columns. Use 'list' to display all columns. Use '*' to display all contents. (default: list)")
 
     parser._optionals.title = "Options"
     parser.add_argument("-h", "--help",
@@ -140,7 +140,7 @@ def main():
     args.columns = args.columns.split(",")
 
     for column in args.columns:
-        if column not in all_columns:
+        if column not in all_columns and column != "*":
             logger.error(f"Column '{column}' does not exist in table '{args.table}'.")
             sys.exit(1)
 

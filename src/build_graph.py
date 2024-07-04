@@ -12,6 +12,9 @@ Relationships are defined by the following rules:
        the combined score is higher than a given threshold and the relationship
        is not already present in the graph, the relationship is added to the graph
        as an undirected edge.
+    3. If differential expression data is provided, the weights of the edges are
+       adjusted based on the log2 fold change values from transcriptomics or proteomics
+       experiments.
 
 The degree of neighbors for which the graph is built can be controlled with the
 '-d / --depth' option. By default, the graph will only contain the query identifier
@@ -42,7 +45,7 @@ from lib.cli import (
     read_input
 )
 from lib.db_operations import connect_to_db
-from lib.graph import run_build_graph
+from lib.graph import run_build_graph, adjust_weights_with_expression_data
 
 def setup_argparse() -> argparse.ArgumentParser:
     """
@@ -85,8 +88,21 @@ Examples:
     parser.add_argument("-S", "--string-threshold",
                         metavar="<float>",
                         type=int,
-                        default=800,
-                        help="Threshold for the STRING combined score. Range: 0-1000. Default: 800")
+                        default=700,
+                        help="Threshold for the STRING combined score. Range: 0-1000. Default: 700")
+    parser.add_argument("--experiment-type",
+                        metavar="<type>",
+                        type=str,
+                        choices=["transcriptomics", "proteomics"],
+                        help="Type of differential expression experiment (transcriptomics or proteomics).")
+    parser.add_argument("--condition-a",
+                        metavar="<condition>",
+                        type=str,
+                        help="Condition A for differential expression.")
+    parser.add_argument("--condition-b",
+                        metavar="<condition>",
+                        type=str,
+                        help="Condition B for differential expression.")
     parser.add_argument("--db",
                         metavar="<conn>",
                         type=str,
@@ -121,7 +137,7 @@ def setup_config() -> Tuple[argparse.Namespace, logging.Logger]:
 
     logger = setup_logger(args.log)
 
-    if len(sys.argv) == 1 and sys.stdin.isatty():
+    if len(sys.argv) == 1 and not sys.stdin.isatty():
         parser.print_help()
         sys.exit(1)
 
@@ -136,6 +152,11 @@ def setup_config() -> Tuple[argparse.Namespace, logging.Logger]:
 
     if args.string_threshold < 0 or args.string_threshold > 1000:
         logger.error("The STRING threshold must be within the range 0-1000")
+        raise KeyError
+
+    if (args.experiment_type and (not args.condition_a or not args.condition_b)) or \
+        (not args.experiment_type and (args.condition_a or args.condition_b)):
+        logger.error("If specifying differential expression data, both condition_a and condition_b must be provided along with the experiment_type")
         raise KeyError
 
     return args, logger
@@ -167,6 +188,15 @@ def main():
 
 
     graph = run_build_graph(conn, id_list, args.depth, args.string_threshold)
+
+    if args.experiment_type:
+        adjust_weights_with_expression_data(
+            conn,
+            graph,
+            args.experiment_type,
+            args.condition_a,
+            args.condition_b
+            )
 
 
     for relation in graph:

@@ -226,6 +226,9 @@ def get_records(table_name: str,
 
     logger.debug(f"Getting all records in the `{table_name}` table")
 
+    if column_names == ["*"]:
+        column_names = get_table_columns(table_name, conn)
+
     query = f"SELECT {', '.join(column_names)} FROM {table_name}"
 
     try:

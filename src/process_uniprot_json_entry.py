@@ -9,16 +9,17 @@ Output format:
   1. Primary accession
   2. Locus tag(s) (if multiple, separated by ';')
   3. ORF names (if multiple, separated by ';')
-  4. KEGG accession(s) (if multiple, separated by ';')
-  5. RefSeq Protein ID
-  6. EMBL protein ID
-  7. Keywords (if multiple, separated by ';')
-  8. Protein name
-  9. Protein existence
-  10. Sequence
-  11. GO terms (if multiple, separated by ';')
-  12. EC number(s) (if multiple, separated by ';')
-  13. Post-translational modifications (JSON array as string)
+  4. Gene name
+  5. KEGG accession(s) (if multiple, separated by ';')
+  6. RefSeq Protein ID
+  7. EMBL protein ID
+  8. Keywords (if multiple, separated by ';')
+  9. Protein name
+  10. Protein existence
+  11. Sequence
+  12. GO terms (if multiple, separated by ';')
+  13. EC number(s) (if multiple, separated by ';')
+  14. Post-translational modifications (JSON array as string)
 """
 
 import argparse
@@ -146,6 +147,18 @@ def get_orf_names(genes: dict) -> str:
         return "NULL"
 
     return ";".join(orf_names)
+
+
+def get_gene_name(genes: dict) -> str:
+
+    gene_name = "NULL"
+
+    try:
+        gene_name = genes[0]["geneName"]["value"]
+    except KeyError:
+        return "NULL"
+
+    return gene_name
 
 
 def get_embl_protein_id(xrefs: List[dict]) -> str:
@@ -294,6 +307,7 @@ def parse_json_entry(entry: dict) -> Tuple:
 
     locus_tag = "NULL"
     orf_names = "NULL"
+    gene_name = "NULL"
     kegg_accession = "NULL"
     embl_protein_id = "NULL"
     refseq_accession = "NULL"
@@ -308,6 +322,7 @@ def parse_json_entry(entry: dict) -> Tuple:
     if "genes" in entry:
         locus_tag = get_locus_tag(entry["genes"])
         orf_names = get_orf_names(entry["genes"])
+        gene_name = get_gene_name(entry["genes"])
 
     if "sequence" in entry:
         if "value" in entry["sequence"]:
@@ -337,6 +352,7 @@ def parse_json_entry(entry: dict) -> Tuple:
         primary_accession, # str
         locus_tag, # List as str joined by ;
         orf_names, # List as str joined by ;
+        gene_name, # str
         kegg_accession, # List as str joined by ;
         refseq_accession, # str
         embl_protein_id, # str

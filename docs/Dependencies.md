@@ -20,6 +20,10 @@ source /path/to/my/venv/bin/activate
 
 Once activated, you can deactivate the enviorment using `deactivate`.
 
+```shell
+deactivate
+```
+
 See the [Python Documentation](<https://docs.python.org/3/library/venv.html>) for
 troubleshooting and more detailed information about how to create and manage virtual environments.
 

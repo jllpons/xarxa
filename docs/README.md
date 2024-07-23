@@ -2,6 +2,8 @@
 
 Welcome to the Xarxa documentation. This guide provides comprehensive information about the database, its design, configuration, and usage. Below are the sections available:
 
+- [Dependencies](Dependencies.md): List of dependencies required to run the database and scripts, along with installation instructions.
+
 - [Database Overview](Overview.md): Overview of the database, including design and details about the different tables and columns.
 
 - [Database Configuration](Configuration.md): Instructions on how to use the `config/configuration.json` file for database configuration.

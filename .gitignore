@@ -1,13 +1,9 @@
 .DS_Store
 __pycache__/
 logs/2*
-logs/processed_data/*
-!logs/processed_data/.gitkeep
-logs/script_logs/*
-!logs/script_logs/.gitkeep
+logs/processed_data/
+logs/script_logs/
 data/
 config/configuration.json
 config/experimental.json
 .vscode/
-
-

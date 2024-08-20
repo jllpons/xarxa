@@ -57,7 +57,7 @@ def setup_logger(level: str) -> logging.Logger:
     filename = os.path.basename(sys.argv[0])
     date = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
-    file_handler = logging.FileHandler(f"logs/{date}_{filename}.log")
+    file_handler = logging.FileHandler(f"logs/script_logs/{date}_{filename}.log")
     file_handler.setLevel(level)
     file_handler.setFormatter(logging.Formatter(format))
 

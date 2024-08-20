@@ -130,7 +130,7 @@ mk_id_mapper_table(){
     echo "Step 2.1: Build ID Mapper Table"
     echo ""
 
-    cut -f1-5 "$uniprotkb_dir/uniprot_entries.tsv" \
+    cut -f1-3,5-6 "$uniprotkb_dir/uniprot_entries.tsv" \
     | tee "$log_dir/uniprot_entries_cut.out.tsv" > "$id_mapper_dir/uniprot_entries_cut.tsv"
 
     cut -f1-3 "$refseq_dir/refseq_genome.tsv" \

@@ -164,9 +164,9 @@ insert_uniprot_table(){
     echo "Step 3.1: Insert UniProt Entries"
     echo ""
 
-    python src/upsert_table.py --log "$log_level" \
-        "uniprot" \
-        "$uniprotkb_dir/uniprot_entries.tsv"
+    python src/upsert_table.py "uniprot" \
+        "$uniprotkb_dir/uniprot_entries.tsv" \
+        --log "$log_level"
 }
 
 
@@ -176,9 +176,9 @@ insert_refseq_table(){
     echo "Step 3.2: Insert RefSeq Genome Features"
     echo ""
 
-    python src/upsert_table.py --log "$log_level" \
-        "refseq" \
-        "$refseq_dir/refseq_genome.tsv"
+    python src/upsert_table.py "refseq" \
+        "$refseq_dir/refseq_genome.tsv" \
+        --log "$log_level"
 }
 
 
@@ -188,9 +188,9 @@ insert_kegg_table(){
     echo "Step 3.3: Insert KEGG Entries"
     echo ""
 
-    python src/upsert_table.py --log "$log_level" \
-        "kegg" \
-        "$kegg_dir/kegg_organism.tsv"
+    python src/upsert_table.py "kegg" \
+        "$kegg_dir/kegg_organism.tsv" \
+        --log "$log_level"
 }
 
 

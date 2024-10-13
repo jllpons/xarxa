@@ -516,3 +516,60 @@ WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
         raise e
 
     return result[0][0]
+
+
+def get_go_terms(conn: psycopg2.extensions.connection, uniprot_accession: str) -> List[str]:
+    """
+    This function queries the database to retrieve all GO terms.
+
+    Args:
+        conn: A psycopg2 connection object
+
+    Returns:
+        List[str]: A list of GO terms
+    """
+
+    query = f"""
+SELECT {COLUMN_NAME_GO_TERM}
+FROM {TABLE_NAME_UNIPROT_GO_TERM}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
+"""
+
+    params = (uniprot_accession,)
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error retrieving GO terms for UniProt accession: {uniprot_accession}")
+        raise e
+
+    return [r[0] for r in result]
+
+
+def get_ec_numbers(conn: psycopg2.extensions.connection, uniprot_accession: str) -> List[str]:
+    """
+    This function queries the database to retrieve all EC numbers.
+
+    Args:
+        conn: A psycopg2 connection object
+
+    Returns:
+        List[str]: A list of EC numbers
+    """
+
+    query = f"""
+SELECT {COLUMN_NAME_EC_NUMBER}
+FROM {TABLE_NAME_UNIPROT_EC_NUMBER}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
+"""
+
+    params = (uniprot_accession,)
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error retrieving EC numbers for UniProt accession: {uniprot_accession}")
+        raise e
+
+    return [r[0] for r in result]
+

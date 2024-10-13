@@ -14,7 +14,8 @@ from typing import List, Optional
 import psycopg2
 
 from lib.db_operations import (
-    execute_query, 
+    execute_query,
+    execute_fetchall_query,
     create_table_if_not_exists
 )
 from lib.generic_row import parse_tsv
@@ -282,5 +283,30 @@ def run_upsert_kegg(
     conn.commit()
 
 
+def get_kegg_pathways(conn: psycopg2.extensions.connection, kegg_accession: str) -> List[str]:
+    """
+    This function queries the database to retrieve all KEGG pathways.
 
+    Args:
+        conn: A psycopg2 connection object
+
+    Returns:
+        List[str]: A list of KEGG pathways
+    """
+
+    query = f"""
+SELECT {COLUMN_NAME_KEGG_PATHWAY}
+FROM {TABLE_NAME_KEGG_PATHWAY}
+WHERE {COLUMN_NAME_KEGG_ACCESSION} = %s
+"""
+
+    params = (kegg_accession,)
+
+    try:
+        result = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error retrieving KEGG pathways for KEGG accession: {kegg_accession}")
+        raise e
+
+    return [r[0] for r in result]
 

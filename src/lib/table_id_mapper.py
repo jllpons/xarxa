@@ -209,6 +209,149 @@ WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s OR
 
     return results
 
+def _map_id(
+        conn: psycopg2.extensions.connection,
+        id: str,
+        ) -> List[str]:
+    """
+    """
+
+    is_uniprot_query = f"""
+SELECT {COLUMN_NAME_UNIPROT_ACCESSION}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
+"""
+
+    is_refseq_locus_tag_query = f"""
+SELECT {COLUMN_NAME_REFSEQ_LOCUS_TAG}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_REFSEQ_LOCUS_TAG} = %s
+"""
+
+    is_locus_tag_query = f"""
+SELECT {COLUMN_NAME_LOCUS_TAG}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_LOCUS_TAG} = %s
+"""
+
+    is_kegg_accession_query = f"""
+SELECT {COLUMN_NAME_KEGG_ACCESSION}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_KEGG_ACCESSION} = %s
+"""
+
+    is_refseq_protein_id_query = f"""
+SELECT {COLUMN_NAME_REFSEQ_PROTEIN_ID}
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_REFSEQ_PROTEIN_ID} = %s
+"""
+
+    params = (id,)
+
+    try:
+        is_uniprot = execute_fetchall_query(is_uniprot_query, conn, params)
+        is_refseq_locus_tag = execute_fetchall_query(is_refseq_locus_tag_query, conn, params)
+        is_locus_tag = execute_fetchall_query(is_locus_tag_query, conn, params)
+        is_kegg_accession = execute_fetchall_query(is_kegg_accession_query, conn, params)
+        is_refseq_protein_id = execute_fetchall_query(is_refseq_protein_id_query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error fetching record for ID: {id}")
+        raise e
+
+    results = []
+
+    query = None
+
+    if is_uniprot:
+        query = f"""
+SELECT *
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_UNIPROT_ACCESSION} = %s
+"""
+
+    elif is_refseq_locus_tag:
+        query = f"""
+SELECT *
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_REFSEQ_LOCUS_TAG} = %s
+"""
+
+    elif is_locus_tag:
+        query = f"""
+SELECT *
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_LOCUS_TAG} = %s
+"""
+
+    elif is_kegg_accession:
+        query = f"""
+SELECT *
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_KEGG_ACCESSION} = %s
+"""
+
+    elif is_refseq_protein_id:
+        query = f"""
+SELECT *
+FROM {TABLE_NAME_ID_MAPPER}
+WHERE {COLUMN_NAME_REFSEQ_PROTEIN_ID} = %s
+"""
+
+    else:
+        results = []
+
+    if not query:
+        return results
+
+    try:
+        results = execute_fetchall_query(query, conn, params)
+    except psycopg2.Error as e:
+        logger.error(f"Error fetching record for ID: {id}")
+        raise e
+
+    if len(results) == 0:
+        return []
+
+    uniprot_accession = set([r[0] for r in results if r[0] is not None])
+    if uniprot_accession != {None}:
+        uniprot_accession = ";".join(uniprot_accession)
+    else:
+        uniprot_accession = "NULL"
+
+    refseq_locus_tag = set([r[1] for r in results if r[1] is not None])
+    if refseq_locus_tag != {None}:
+        refseq_locus_tag = ";".join(refseq_locus_tag)
+    else:
+        refseq_locus_tag = "NULL"
+
+    locus_tag = set([r[2] for r in results if r[2] is not None])
+    if locus_tag != {None}:
+        locus_tag = ";".join(locus_tag)
+    else:
+        locus_tag = "NULL"
+
+    kegg_accession = set([r[3] for r in results if r[3] is not None])
+    if kegg_accession != {None}:
+        kegg_accession = ";".join(kegg_accession)
+    else:
+        kegg_accession = "NULL"
+
+    refseq_protein_id = set([r[4] for r in results if r[4] is not None])
+    if refseq_protein_id != {None}:
+        refseq_protein_id = ";".join(refseq_protein_id)
+    else:
+        refseq_protein_id = "NULL"
+
+    results = [
+        uniprot_accession,
+        refseq_locus_tag,
+        locus_tag,
+        kegg_accession,
+        refseq_protein_id,
+    ]
+
+    return results
+
 
 
 

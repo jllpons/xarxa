@@ -126,9 +126,57 @@ integrate_transcriptomics() {
             echo "replicate: $replicate"
             echo "file: ${condition_b_counts[$index]}"
 
-            python src/upsert_table.py transcriptomics_counts ${condition_b_counts[$index]} $condition_b $replicate --log $log_level
         done
 
+
+    done
+}
+
+integrate_proteomics() {
+    jq -c ".proteomics[]" $experimental_path | while read experiment; do
+
+        file_path=$(echo $experiment | jq -r '.file')
+        condition_a=$(echo $experiment | jq -r '.condition_a')
+        condition_b=$(echo $experiment | jq -r '.condition_b')
+        condition_a_counts=($(echo $experiment | jq -r '.condition_a_intensities[]'))
+        condition_b_counts=($(echo $experiment | jq -r '.condition_b_intensities[]'))
+
+        echo ""
+        echo "Integrating Proteomics Data for:"
+        echo " - File path: $file_path"
+        echo " - Condition A: $condition_a"
+        echo " - Condition B: $condition_b"
+        echo " - Condition A Intensities: $condition_a_counts"
+        echo " - Condition B Intensities: $condition_b_counts"
+        echo "--------------------------------------------------------------------------------"
+        echo ""
+
+        cat $file_path | tail -n +2 | python src/upsert_table.py proteomics "-" $condition_a $condition_b --log $log_level
+        echo "Proteomics data integrated successfully"
+
+        echo ""
+        echo "Inserting intensities for condition A"
+        echo ""
+
+        for index in $(seq 0 $((${#condition_a_counts[@]} - 1))); do
+            replicate=$(($index + 1))
+            echo " - replicate: $replicate"
+            echo " - file: ${condition_a_counts[$index]}"
+
+            cat ${condition_a_counts[$index]} | tail -n +2 | python src/upsert_table.py proteomics_replicates "-" $condition_a $replicate --log $log_level
+        done
+
+        echo ""
+        echo "Inserting intensities for condition B"
+        echo ""
+
+        for index in $(seq 0 $((${#condition_b_counts[@]} - 1))); do
+            replicate=$(($index + 1))
+            echo " - replicate: $replicate"
+            echo " - file: ${condition_b_counts[$index]}"
+
+            cat ${condition_b_counts[$index]} | tail -n +2 | python src/upsert_table.py proteomics_replicates "-" $condition_b $replicate --log $log_level
+        done
 
     done
 }
@@ -154,6 +202,10 @@ echo ""
 echo "Step 2. Integrate the transcriptomics data. For each transcriptomics experiment:"
 echo ""
 integrate_transcriptomics
+echo ""
+echo "Step 3. Integrate the proteomics data. For each proteomics experiment:"
+echo ""
+integrate_proteomics
 echo ""
 echo "Finished Integrating Experimental Data"
 echo "================================================================================"

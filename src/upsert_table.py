@@ -313,62 +313,51 @@ Upsert data from a file to the 'transcriptomics_counts' table in the database:
     $ upsert_table.py transcriptomics_counts data/transcriptomics_counts.tsv control 1
     """)
 
-
-    table_types.add_parser("proteomics_peptide_modifications",
+    table_types.add_parser("proteomics",
                            help="",
                            formatter_class=fmt,
-                           usage="upsert_table.py proteomics_peptide_modifications [options] <file> <experimental_condition>",
+                           usage="upsert_table.py proteomics [options] <file> <condition_a> <condition_b>",
                            description="""
-The 'proteomics_peptide_modifications' table stores the peptide modifications for each protein
-in a given experimental condition.
+The 'proteomics' table stores the differential expression data between two experimental conditions.
 
 Input Format:
 - The data file should be tab-separated with the following columns:
     1. Experimental ID
-    2. Experimental Condition
-    3. Modification Type
-    4. Modification Position
-    5. Peptide Sequence
-    6. Start Position Complete Protein
-    7. End Position Complete Protein
-    8. PSM Ambiguity
-    9. PEP Score
-    10. Q-Value
-    11. Search Engine Confidence
+    2. Condition A
+    3. Condition B
+    4. Peptide Sequence
+    5. Peptide Positions
+    6. Log2 Fold Change
+    7. P-value
+    8. Adjusted P-value
                            """,
                            epilog="""
 Example:
-  Upsert data from a file to the 'proteomics_peptide_modifications' table in the database:
-    $ upsert_table.py proteomics_peptide_modifications data/proteomics_peptide_modifications.tsv control
+Upsert data from a file to the 'proteomics' table in the database:
+    $ upsert_table.py proteomics data/proteomics.tsv control treatment
     """)
 
 
-    table_types.add_parser("proteomics_quantification",
+    table_types.add_parser("proteomics_replicates",
                            help="",
                            formatter_class=fmt,
-                           usage="upsert_table.py proteomics_quantification [options] <file> <experimental_condition> <replicate>",
+                           usage="upsert_table.py proteomics_replicates [options] <file> <experimental_condition> <replicate>",
                            description="""
-The 'proteomics_quantification' table stores the quantification data for each protein
-in a given experimental condition and replicate.
+The 'proteomics_replicates' table stores the raw intensity values for each protein in a given
+experimental condition and replicate.
 
 Input Format:
 - The data file should be tab-separated with the following columns:
     1. Experimental ID
     2. Experimental Condition
     3. Replicate
-    4. Protein Sequence
-    5. Sum of PEP Scores
-    6. Cumulative Q-Value
-    7. Abundance
-    8. Abundance Normalized
-    9. Abundance Count
+    4. Intensity
                            """,
                            epilog="""
 Example:
-  Upsert data from a file to the 'proteomics_quantification' table in the database:
-    $ upsert_table.py proteomics_quantification data/proteomics_quantification.tsv control 1
+Upsert data from a file to the 'proteomics_replicates' table in the database:
+    $ upsert_table.py proteomics_replicates data/proteomics_replicates.tsv control 1
     """)
-
 
     # Add arguments based on specific subparser (table type) we are using
     for subparser in table_types.choices.values():
@@ -384,15 +373,18 @@ Example:
 
         if subparser in [
             table_types.choices["transcriptomics_counts"],
-            table_types.choices["proteomics_peptide_modifications"],
-            table_types.choices["proteomics_quantification"],
+            table_types.choices["proteomics_replicates"],
         ]:
             required.add_argument("experimental_condition",
                                   metavar="<experimental_condition>",
                                   type=str,
                                   help="Name of the experimental condition. E.g. 'control', 'treatment', etc.")
 
-        if subparser == table_types.choices["transcriptomics"]:
+        if subparser in [
+                table_types.choices["transcriptomics"],
+                table_types.choices["proteomics"],
+        ]:
+
             required.add_argument("condition_a",
                                   metavar="<condition_a>",
                                   type=str,
@@ -405,7 +397,7 @@ Example:
 
         if subparser in [
             table_types.choices["transcriptomics_counts"],
-            table_types.choices["proteomics_quantification"],
+            table_types.choices["proteomics_replicates"],
         ]:
             required.add_argument("replicate",
                                   metavar="<replicate>",
@@ -527,15 +519,17 @@ def main():
             from lib.table_transcriptomics_counts import run_upsert_transcriptomics_counts
             run_upsert_transcriptomics_counts(in_data, args.experimental_condition, args.replicate, conn)
 
-        case "proteomics_peptide_modifications":
+        case "proteomics":
 
-            from lib.table_proteomics_peptide_modifications import run_upsert_proteomics_peptide_modifications
-            run_upsert_proteomics_peptide_modifications(in_data, args.experimental_condition, conn)
+            from lib.table_proteomics import run_upsert_proteomics
+            run_upsert_proteomics(
+                in_data, args.condition_a, args.condition_b, conn
+            )
 
-        case "proteomics_quantification":
+        case "proteomics_replicates":
 
-            from lib.table_proteomics_quantification import run_upsert_proteomics_quantification
-            run_upsert_proteomics_quantification(in_data, args.experimental_condition, args.replicate, conn)
+            from lib.table_proteomics_replicates import run_upsert_proteomics_replicates
+            run_upsert_proteomics_replicates(in_data, args.experimental_condition, args.replicate, conn)
 
 
     conn.close()
